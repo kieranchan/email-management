@@ -1,0 +1,60 @@
+/* Email content styles */
+.email-content {
+    font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+}
+
+.email-content a {
+    color: #0066cc;
+    text-decoration: none;
+}
+
+.email-content a:hover {
+    text-decoration: underline;
+}
+
+.email-content img {
+    max-width: 100%;
+    height: auto;
+}
+
+/* Quoted replies - Gmail/Outlook style */
+.email-content blockquote,
+.email-content .gmail_quote {
+    margin: 8px 0;
+    padding: 0 0 0 10px;
+    border-left: 2px solid #0066cc;
+    color: #666;
+}
+
+/* Preformatted text */
+.email-content pre {
+    background: #f0f0f0;
+    padding: 10px;
+    border-radius: 4px;
+    overflow-x: auto;
+    font-size: 13px;
+}
+
+/* Tables */
+.email-content table {
+    border-collapse: collapse;
+    max-width: 100%;
+}
+
+.email-content td,
+.email-content th {
+    padding: 6px 8px;
+    border: 1px solid #ddd;
+}
+
+/* Paragraphs */
+.email-content p {
+    margin: 0 0 8px 0;
+}
+
+/* Horizontal rule */
+.email-content hr {
+    border: none;
+    border-top: 1px solid #ddd;
+    margin: 12px 0;
+}

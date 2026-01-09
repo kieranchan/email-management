@@ -1,0 +1,44 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "linux-musl-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Account {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  password  String   // Stored as plain/encrypted for IMAP access
+  name      String?
+  tag       String?
+  host      String   @default("mail.oragenode.online")
+  port      Int      @default(993)
+  smtpPort  Int      @default(587)
+  
+  emails    Email[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Email {
+  id        String   @id @default(cuid())
+  accountId String
+  account   Account  @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  uid       Int      // IMAP UID
+  subject   String?
+  from      String?
+  to        String?
+  date      DateTime
+  flags     String?  // JSON string or comma separated, e.g. "[\Seen\", \"\Answered\"]"
+  content   String?  // Full email body (HTML or plain text)
+  
+  @@unique([accountId, uid])
+  @@index([date])
+}

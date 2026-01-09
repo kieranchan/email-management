@@ -1,0 +1,21 @@
+services:
+  admin-dashboard:
+    build: .
+    image: admin-dashboard:latest
+    container_name: admin-dashboard
+    restart: always
+    environment:
+      # In production, use a volume or bind mount for persistence
+      - DATABASE_URL=file:/app/dev.db
+    volumes:
+      # Persist the SQLite database
+      - ./dev.db:/app/dev.db
+    ports:
+      # Expose locally for testing, or rely on Nginx in same network
+      - "3000:3000"
+    networks:
+      - default
+
+networks:
+  default:
+    driver: bridge
