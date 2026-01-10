@@ -104,20 +104,53 @@ export default function Dashboard() {
   // Define functions BEFORE useEffect
   async function loadEmails() {
     setLoading(true);
-    const r = await fetch(selected ? `/api/inbox?accountId=${selected}` : '/api/inbox');
+    // Map folder type to API folder parameter
+    const folderMap: Record<FolderType, string> = {
+      inbox: 'INBOX',
+      sent: 'SENT',
+      drafts: 'DRAFTS',
+      archive: 'ARCHIVE'
+    };
+    const folder = folderMap[activeFolder];
+
+    // Drafts use a different API endpoint
+    if (activeFolder === 'drafts') {
+      const r = await fetch(selected ? `/api/drafts?scope=account&accountId=${selected}` : '/api/drafts?scope=all');
+      if (r.ok) {
+        const data = await r.json();
+        const enhanced = data.items?.map((d: { id: string; to?: string; subject?: string; preview?: string; updatedAt: string; accountLabel?: string }) => ({
+          id: d.id,
+          from: d.to || '(无收件人)',
+          subject: d.subject || '(无主题)',
+          date: d.updatedAt,
+          unread: false,
+          snippet: d.preview || '(草稿)',
+          content: '',
+          isDraft: true
+        })) || [];
+        setEmails(enhanced);
+      }
+      setLoading(false);
+      return;
+    }
+
+    // For inbox/sent/archive, use the inbox API with folder parameter
+    const url = selected
+      ? `/api/inbox?accountId=${selected}&folder=${folder}`
+      : `/api/inbox?folder=${folder}`;
+    const r = await fetch(url);
     if (r.ok) {
       const data = await r.json();
-      const enhanced = data.map((e: Email, i: number) => {
-        // Generate snippet from content
-        let snippet = '';
-        if (e.content) {
-          // Strip HTML tags and get plain text
+      const enhanced = data.map((e: Email & { snippet?: string }, i: number) => {
+        // Use snippet from API or generate from content
+        let snippet = e.snippet || '';
+        if (!snippet && e.content) {
           const text = e.content.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
           snippet = text.length > 100 ? text.substring(0, 100) + '...' : text;
         }
         return {
           ...e,
-          unread: i < 2,
+          unread: i < 2 && activeFolder === 'inbox',
           snippet: snippet || '(无内容)'
         };
       });
@@ -211,7 +244,7 @@ export default function Dashboard() {
   }, [accent]);
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(() => { loadEmails(); }, [selected]);
+  useEffect(() => { loadEmails(); }, [selected, activeFolder]);
 
   // WebSocket connection for real-time email updates
   useEffect(() => {

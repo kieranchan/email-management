@@ -22,23 +22,46 @@ model Account {
   smtpPort  Int      @default(587)
   
   emails    Email[]
+  drafts    Draft[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
 
 model Email {
-  id        String   @id @default(cuid())
-  accountId String
-  account   Account  @relation(fields: [accountId], references: [id], onDelete: Cascade)
-  uid       Int      // IMAP UID
-  subject   String?
-  from      String?
-  to        String?
-  date      DateTime
-  flags     String?  // JSON string or comma separated, e.g. "[\Seen\", \"\Answered\"]"
-  content   String?  // Full email body (HTML or plain text)
+  id          String   @id @default(cuid())
+  accountId   String
+  account     Account  @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  uid         Int      // IMAP UID
+  subject     String?
+  from        String?
+  to          String?
+  date        DateTime
+  flags       String?  // JSON string or comma separated
+  content     String?  // Full email body (HTML or plain text)
+  folder      String   @default("INBOX") // INBOX, SENT, ARCHIVE
+  archived    Boolean  @default(false)   // For local archive mode
+  localStatus String   @default("NORMAL") // NORMAL, PENDING, ERROR
   
   @@unique([accountId, uid])
   @@index([date])
+  @@index([folder])
+  @@index([archived])
+}
+
+// Local draft storage
+model Draft {
+  id          String   @id @default(cuid())
+  accountId   String
+  account     Account  @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  to          String?
+  cc          String?
+  bcc         String?
+  subject     String?
+  textBody    String?
+  htmlBody    String?
+  status      String   @default("SAVED") // SAVED, SAVING, ERROR
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 }
