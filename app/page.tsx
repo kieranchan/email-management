@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Mail, RefreshCw, Send, Inbox, Archive, Settings, FileText, X, Moon, Sun, Check, ArrowLeft } from 'lucide-react';
+import { Mail, RefreshCw, Send, Inbox, Archive, Settings, FileText, X, Moon, Sun, Check, ArrowLeft, Layers } from 'lucide-react';
 
 // 强调色定义
 const ACCENT_COLORS = [
@@ -15,7 +15,20 @@ const ACCENT_COLORS = [
 ];
 
 interface Account { id: string; email: string; name: string; tag: string; }
-interface Email { id: string; from: string; to?: string; subject: string; date: string; unread?: boolean; snippet?: string; content?: string; archived?: boolean; isDraft?: boolean; }
+interface Email {
+  id: string;
+  from: string;
+  to?: string;
+  subject: string;
+  date: string;
+  unread?: boolean;
+  snippet?: string;
+  content?: string;
+  archived?: boolean;
+  isDraft?: boolean;
+  accountLabel?: string;
+  accountColorTag?: string;
+}
 interface Tag { id: string; label: string; color: string; }
 
 // Fallback tags if API fails
@@ -56,6 +69,9 @@ export default function Dashboard() {
   const [compose, setCompose] = useState(false);
   const [form, setForm] = useState({ from: '', to: '', subject: '', content: '' });
   const [selectedEmail, setSelectedEmail] = useState<Email | null>(null);
+  const [sending, setSending] = useState(false);
+  const [sendError, setSendError] = useState<string | null>(null);
+  const [showToast, setShowToast] = useState(false);
 
   // Folder Navigation
   type FolderType = 'inbox' | 'sent' | 'drafts' | 'archive';
@@ -89,7 +105,7 @@ export default function Dashboard() {
   const [tagLoading, setTagLoading] = useState(false);
 
   async function updateTag(accountId: string, newTag: string) {
-    const res = await fetch(`/api/accounts?id=${accountId}`, {
+    const res = await fetch(`/api/accounts/?id=${accountId}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ tag: newTag })
@@ -101,65 +117,12 @@ export default function Dashboard() {
     setEditingTagId(null);
   }
 
-  // Define functions BEFORE useEffect
-  async function loadEmails() {
-    setLoading(true);
-    // Map folder type to API folder parameter
-    const folderMap: Record<FolderType, string> = {
-      inbox: 'INBOX',
-      sent: 'SENT',
-      drafts: 'DRAFTS',
-      archive: 'ARCHIVE'
-    };
-    const folder = folderMap[activeFolder];
 
-    // Drafts use a different API endpoint
-    if (activeFolder === 'drafts') {
-      const r = await fetch(selected ? `/api/drafts?scope=account&accountId=${selected}` : '/api/drafts?scope=all');
-      if (r.ok) {
-        const data = await r.json();
-        const enhanced = data.items?.map((d: { id: string; to?: string; subject?: string; preview?: string; updatedAt: string; accountLabel?: string }) => ({
-          id: d.id,
-          from: d.to || '(无收件人)',
-          subject: d.subject || '(无主题)',
-          date: d.updatedAt,
-          unread: false,
-          snippet: d.preview || '(草稿)',
-          content: '',
-          isDraft: true
-        })) || [];
-        setEmails(enhanced);
-      }
-      setLoading(false);
-      return;
-    }
-
-    // For inbox/sent/archive, use the inbox API with folder parameter
-    const url = selected
-      ? `/api/inbox?accountId=${selected}&folder=${folder}`
-      : `/api/inbox?folder=${folder}`;
-    const r = await fetch(url);
-    if (r.ok) {
-      const data = await r.json();
-      const enhanced = data.map((e: Email & { snippet?: string }) => {
-        // Use snippet from API or generate from content
-        let snippet = e.snippet || '';
-        if (!snippet && e.content) {
-          const text = e.content.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
-          snippet = text.length > 100 ? text.substring(0, 100) + '...' : text;
-        }
-        const unread = typeof e.unread === 'boolean' ? e.unread : false;
-        return { ...e, unread, snippet: snippet || '(???)' };
-      });
-      setEmails(enhanced);
-    }
-    setLoading(false);
-  }
 
   // Load dynamic tags from API
   async function loadTags() {
     try {
-      const r = await fetch('/api/settings/tags');
+      const r = await fetch('/api/settings/tags/');
       if (r.ok) {
         const data = await r.json();
         if (Array.isArray(data) && data.length > 0) {
@@ -171,6 +134,80 @@ export default function Dashboard() {
     }
   }
 
+  // Load email details
+  async function selectEmail(email: Email) {
+    setSelectedEmail(email);
+    // If content is missing, fetch details
+    if (!email.content && !email.isDraft) {
+      try {
+        const r = await fetch(`/api/messages/${email.id}/`);
+        if (r.ok) {
+          const detail = await r.json();
+          setSelectedEmail(prev => prev?.id === email.id ? { ...prev, ...detail } : prev);
+        }
+      } catch (e) {
+        console.error('Failed to load email details', e);
+      }
+    }
+  }
+
+  // Define functions BEFORE useEffect
+  async function loadEmails() {
+    setLoading(true);
+
+    // Drafts use a different API endpoint
+    if (activeFolder === 'drafts') {
+      const r = await fetch(selected && selected !== 'all' ? `/api/drafts/?scope=account&accountId=${selected}` : '/api/drafts/?scope=all');
+      if (r.ok) {
+        const data = await r.json();
+        const enhanced = data.items?.map((d: any) => ({
+          id: d.id,
+          from: d.to || '(无收件人)',
+          subject: d.subject || '(无主题)',
+          date: d.updatedAt,
+          unread: false,
+          snippet: d.preview || '(草稿)',
+          content: '',
+          isDraft: true,
+          accountLabel: d.account?.name,
+          accountColorTag: d.account?.tag
+        })) || [];
+        setEmails(enhanced);
+      }
+      setLoading(false);
+      return;
+    }
+
+    // For inbox/sent/archive, use the new messages API
+    let url = `/api/messages/?folderType=${activeFolder}&limit=50`;
+    if (selected === 'all' || !selected) {
+      url += `&scope=all`;
+    } else {
+      url += `&scope=account&accountId=${selected}`;
+    }
+
+    const r = await fetch(url);
+    if (r.ok) {
+      const data = await r.json();
+      // Map API response to UI model
+      const enhanced = (data.items || []).map((e: any) => ({
+        id: e.id,
+        from: e.from,
+        to: e.to,
+        subject: e.subject,
+        date: e.date,
+        unread: e.unread,
+        snippet: e.snippet,
+        content: '', // Detail loaded on demand
+        archived: e.archived,
+        accountLabel: e.accountLabel,
+        accountColorTag: e.accountColorTag
+      }));
+      setEmails(enhanced);
+    }
+    setLoading(false);
+  }
+
   // Add new tag
   async function addTag() {
     if (!newTagLabel.trim()) {
@@ -180,7 +217,7 @@ export default function Dashboard() {
     setTagLoading(true);
     setTagError(null);
     try {
-      const r = await fetch('/api/settings/tags', {
+      const r = await fetch('/api/settings/tags/', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ label: newTagLabel.trim(), color: newTagColor })
@@ -204,7 +241,7 @@ export default function Dashboard() {
     setTagLoading(true);
     setTagError(null);
     try {
-      const r = await fetch(`/api/settings/tags?id=${tagId}`, { method: 'DELETE' });
+      const r = await fetch(`/api/settings/tags/?id=${tagId}`, { method: 'DELETE' });
       if (r.ok) {
         await loadTags();
       } else {
@@ -219,9 +256,10 @@ export default function Dashboard() {
 
   async function load() {
     await loadTags();
-    const r = await fetch('/api/accounts');
+    const r = await fetch('/api/accounts/');
     if (r.ok) setAccounts(await r.json());
-    loadEmails();
+    // Auto select 'all' if no selection
+    if (!selected) setSelected('all');
   }
 
   // Init Logic - 自动加载所有系统账号
@@ -306,20 +344,44 @@ export default function Dashboard() {
 
   async function sync() {
     setSyncing(true);
-    await fetch('/api/sync', { method: 'POST', body: JSON.stringify({ accountId: selected }), headers: { 'Content-Type': 'application/json' } });
+    await fetch('/api/sync/', { method: 'POST', body: JSON.stringify({ accountId: selected }), headers: { 'Content-Type': 'application/json' } });
     await loadEmails();
     setSyncing(false);
   }
 
   async function sendEmail() {
-    if (!form.from) return alert('请选择发件账号');
-    const r = await fetch('/api/send', { method: 'POST', body: JSON.stringify({ accountId: form.from, ...form }), headers: { 'Content-Type': 'application/json' } });
-    if (r.ok) { setCompose(false); setForm({ from: '', to: '', subject: '', content: '' }); }
+    if (!form.from) { setSendError('请选择发件账号'); return; }
+    if (!form.to) { setSendError('请填写收件人'); return; }
+
+    setSending(true);
+    setSendError(null);
+
+    try {
+      const r = await fetch('/api/send/', {
+        method: 'POST',
+        body: JSON.stringify({ accountId: form.from, ...form }),
+        headers: { 'Content-Type': 'application/json' }
+      });
+
+      if (r.ok) {
+        setCompose(false);
+        setForm({ from: '', to: '', subject: '', content: '' });
+        // Show success toast
+        setShowToast(true);
+        setTimeout(() => setShowToast(false), 3000);
+      } else {
+        const d = await r.json();
+        setSendError(d.error || '发送失败，请重试');
+      }
+    } catch (e) {
+      setSendError('网络错误，无法发送');
+    }
+    setSending(false);
   }
 
   // Archive/Restore email
   async function archiveEmail(emailId: string, archive: boolean) {
-    const r = await fetch('/api/actions/archive', {
+    const r = await fetch('/api/actions/archive/', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ messageId: emailId, archived: archive })
@@ -356,6 +418,23 @@ export default function Dashboard() {
         <div style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', padding: 16, scrollbarWidth: 'thin', scrollbarColor: 'var(--stroke-2) transparent' }}>
           <div style={{ fontSize: 12, color: 'var(--text-3)', padding: '0 8px 8px', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 600 }}>
             系统账号 ({accounts.length})
+          </div>
+
+          {/* All Accounts Entry */}
+          <div
+            className={`account-item ${selected === 'all' ? 'selected' : ''}`}
+            tabIndex={0}
+            role="button"
+            onClick={() => setSelected('all')}
+            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') setSelected('all'); }}
+            style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '8px 12px', cursor: 'pointer', marginBottom: 8 }}
+          >
+            <div style={{ width: 32, height: 32, borderRadius: 8, background: 'var(--surface-2)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, border: '1px solid var(--stroke-2)' }}>
+              <Layers size={16} color="var(--text-1)" />
+            </div>
+            <div style={{ fontSize: 14, fontWeight: 500, color: selected === 'all' ? 'var(--text-1)' : 'var(--text-2)' }}>
+              全部账号 (聚合)
+            </div>
           </div>
           {accounts.length === 0 && (
             <div style={{ padding: 16, textAlign: 'center', color: 'var(--text-3)', fontSize: 13 }}>
@@ -465,7 +544,7 @@ export default function Dashboard() {
             </span>
             {selected && (
               <span style={{ fontSize: 13, color: 'var(--text-3)', padding: '4px 10px', background: 'var(--surface-1)', borderRadius: 20 }}>
-                {accounts.find(a => a.id === selected)?.name}
+                {selected === 'all' ? '全部账号' : accounts.find(a => a.id === selected)?.name}
               </span>
             )}
           </div>
@@ -474,7 +553,17 @@ export default function Dashboard() {
               <RefreshCw size={14} className={syncing ? 'animate-spin' : ''} />
               同步
             </button>
-            <button onClick={() => setCompose(true)} className="btn-primary">
+            <button
+              onClick={() => {
+                setCompose(true);
+                setSendError(null);
+                // Pre-fill account if selected specific one
+                if (selected && selected !== 'all') {
+                  setForm(prev => ({ ...prev, from: selected }));
+                }
+              }}
+              className="btn-primary"
+            >
               <Send size={14} />
               写邮件
             </button>
@@ -496,11 +585,11 @@ export default function Dashboard() {
               key={e.id}
               role="button"
               tabIndex={0}
-              onClick={() => setSelectedEmail(e)}
+              onClick={() => selectEmail(e)}
               onKeyDown={(ev) => {
                 if (ev.key === 'Enter' || ev.key === ' ') {
                   ev.preventDefault();
-                  setSelectedEmail(e);
+                  selectEmail(e);
                 }
               }}
               initial={{ opacity: 0, y: 10 }}
@@ -515,7 +604,19 @@ export default function Dashboard() {
               </div>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
-                  <div style={{ fontSize: 15, fontWeight: e.unread ? 600 : 500, color: 'var(--text-1)' }}>{e.from}</div>
+                  <div style={{ fontSize: 15, fontWeight: e.unread ? 600 : 500, color: 'var(--text-1)', display: 'flex', alignItems: 'center', gap: 8 }}>
+                    {e.from}
+                    {(selected === 'all' || !selected) && e.accountLabel && (
+                      (() => {
+                        const badge = getTagBadge(e.accountColorTag || '');
+                        return (
+                          <span style={{ fontSize: 10, padding: '2px 6px', borderRadius: 4, background: badge.color, color: '#000', fontWeight: 700, opacity: 0.9 }}>
+                            {e.accountLabel}
+                          </span>
+                        );
+                      })()
+                    )}
+                  </div>
                   <div style={{ fontSize: 12, color: 'var(--text-3)', fontFamily: 'var(--font-ui)' }}>
                     {e.date ? new Date(e.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
                   </div>
@@ -829,9 +930,46 @@ export default function Dashboard() {
                 <input value={form.to} onChange={ev => setForm({ ...form, to: ev.target.value })} placeholder="收件人" className="input-glass" />
                 <input value={form.subject} onChange={ev => setForm({ ...form, subject: ev.target.value })} placeholder="主题" className="input-glass" />
                 <textarea value={form.content} onChange={ev => setForm({ ...form, content: ev.target.value })} placeholder="正文内容..." className="textarea-glass" />
-                <button onClick={sendEmail} className="btn-primary" style={{ width: '100%' }}>发送邮件</button>
+
+                {sendError && (
+                  <div style={{ padding: '8px 12px', background: 'rgba(239, 68, 68, 0.15)', border: '1px solid rgba(239, 68, 68, 0.3)', borderRadius: 8, fontSize: 13, color: '#ef4444', display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <div style={{ width: 4, height: 4, borderRadius: '50%', background: 'currentColor' }} />
+                    {sendError}
+                  </div>
+                )}
+
+                <button
+                  onClick={sendEmail}
+                  disabled={sending}
+                  className="btn-primary"
+                  style={{ width: '100%', justifyContent: 'center', cursor: sending ? 'not-allowed' : 'pointer', opacity: sending ? 0.8 : 1 }}
+                >
+                  {sending ? (
+                    <>
+                      <RefreshCw size={14} className="animate-spin" />
+                      发送中...
+                    </>
+                  ) : '发送邮件'}
+                </button>
               </div>
             </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Toast Notification */}
+      <AnimatePresence>
+        {showToast && (
+          <motion.div
+            initial={{ opacity: 0, y: 20, scale: 0.9 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 20, scale: 0.9 }}
+            style={{ position: 'fixed', bottom: 32, left: '50%', transform: 'translateX(-50%)', background: 'var(--surface-1)', border: '1px solid var(--stroke-2)', padding: '12px 24px', borderRadius: 50, boxShadow: 'var(--elev-2)', display: 'flex', alignItems: 'center', gap: 12, zIndex: 100 }}
+          >
+            <div style={{ width: 20, height: 20, borderRadius: '50%', background: 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <Check size={12} color="#fff" />
+            </div>
+            <span style={{ fontSize: 14, fontWeight: 500, color: 'var(--text-1)' }}>邮件发送成功</span>
           </motion.div>
         )}
       </AnimatePresence>

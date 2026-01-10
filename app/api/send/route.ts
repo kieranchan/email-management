@@ -68,6 +68,17 @@ export async function POST(request: Request) {
         return NextResponse.json({ success: true, messageId: info.messageId, localId: email.id });
     } catch (error) {
         console.error('Send Error:', error);
+
+        // Update status to FAILED if record exists
+        if (accountId && providerKey) {
+            try {
+                await prisma.email.update({
+                    where: { accountId_providerKey: { accountId, providerKey } },
+                    data: { localStatus: 'FAILED' }
+                });
+            } catch (ignore) { /* If record creation failed, this update will fail too, just ignore */ }
+        }
+
         return NextResponse.json({ error: 'Failed to send email' }, { status: 500 });
     }
 }

@@ -10,7 +10,7 @@
 | P1 | 组件状态对齐 S1 | ✅ 完成 | 2026-01-10 |
 | P2 | 数据模型加固 | ✅ 完成 | 2026-01-10 |
 | P2 | API 补齐 | ✅ 完成 | 2026-01-10 |
-| P3 | All Accounts 逻辑 | ⬜ 待开始 | - |
+| P3 | All Accounts 逻辑 | ✅ 完成 | 2026-01-10 |
 | P4 | 草稿与 Compose | ⬜ 待开始 | - |
 | P5 | QA 检查 | ⬜ 待开始 | - |
 | P6 | 自动同步与增强 | ⬜ 规划中 | - |
@@ -139,18 +139,26 @@ model Email {
 
 ---
 
-## P3: All Accounts 逻辑
+## P3: All Accounts 逻辑与反馈优化
 
-### 目标
+> 目标：提供单屏管理所有邮件的聚合视图，并提升操作的即时反馈。
 
-侧边栏增加 "All Accounts"，支持聚合视图。
+### 1. API 变更
 
-### 变更
+- [x] **`/api/messages`**: 支持 `scope=all` 参数，返回所有账号邮件。
+- [x] **`/api/messages`**: 聚合模式下返回的数据需包含 `accountColor` 和 `accountTag`。
 
-- 侧边栏增加 "All Accounts" 虚拟账号
-- 请求参数带 `scope=all|account`
-- 列表在 `scope=all` 时显示 account chip
-- Compose 在 `scope=all` 强制选择 From，默认 lastUsed
+### 2. UI 组件升级
+
+- [x] **Sidebar**: 增加 "All Accounts" 虚拟入口（ID: `all`），点击后触发聚合查询。
+- [x] **MessageList**: 聚合模式下显示账号标签（Chip），区分不同账号来源。
+- [x] **Compose**: 当在聚合视图下写邮件时，强制要求选择发件人（默认上次使用的）。
+
+### 3. 反馈体验优化 (User Feedback)
+
+- [x] **发送中**: 点击发送后显示全局 Loading 或 Button Loading。
+- [x] **发送成功**: 显示 Toast 提示“发送成功”，并自动关闭窗口/刷新列表。
+- [x] **发送失败**: 保持编辑状态，并在模态框内显示错误提示。
 
 ---
 
@@ -174,9 +182,12 @@ model Email {
 |------|------|----------|
 | 2026-01-10 | P2 | 完成 API 补齐：新增 bootstrap、messages、messages/:id、messages/:id/seen 四个 API 端点，全部测试通过 |
 | 2026-01-10 | P2 | 完成数据模型加固：Email 模型添加 providerKey 字段，更新唯一约束为 [accountId, providerKey]，手动迁移 28 条现有数据 |
+| 2026-01-10 | P3 | All Accounts 逻辑：Sidebar 增加聚合入口，列表支持 scope=all 并显示 Account Chip，Compose 增加发送反馈（Loading/Toast/Error），修复 /api/sync 支持 all 参数，切换前端至于 /api/messages |
 | 2026-01-10 | P2 | providerKey 全链路修复：sync/worker/upsert 改用 accountId_providerKey 唯一键写入 uid + providerKey；发送 API 插入本地 PENDING 记录并成功后改为 NORMAL；补充 drafts DELETE；/api/messages scope=account 强制要求 accountId |
 | 2026-01-10 | 修复 | Settings Modal 滚动和关闭闪烁：添加 maxHeight/flex 布局使内容可滚动；移除 CSS animation 避免与 Framer Motion 冲突 |
 | 2026-01-10 | P1 | 完成组件状态对齐：AccountItem/FolderItem/MessageRow 使用统一样式类，Hover 1px 浮动，未读条按状态显示，增加键盘可达性与 focus ring |
 | 2026-01-10 | P0 | ✅ 完成全局样式落地：添加 Design Tokens 到 globals.css；迁移 TopBar 按钮、Compose/Settings Modal、侧边栏容器、邮件列表项样式 |
 | 2026-01-10 | P0 | 完成 P0 验收：全局样式集中到 globals.css，移除 layout 内联样式；修复 MessageRow hover/未读逻辑与 API 未读标志解析 |
+| 2026-01-10 | 优化 | 全局 API 请求优化：为所有 fetch 请求添加末尾斜杠（/），解决 `trailingSlash: true` 配置下的 308 重定向问题，提升请求效率 |
+| 2026-01-10 | 修复 | Bug #7 发送逻辑修复：发送失败时将本地临时邮件状态更新为 FAILED，防止长期卡在 PENDING 状态；执行脚本清理了历史脏数据 |
 | 2026-01-10 | - | 创建实施计划文档 |

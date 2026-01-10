@@ -116,7 +116,7 @@ export async function POST(request: Request) {
         const { accountId } = body;
 
         let accounts = [];
-        if (accountId) {
+        if (accountId && accountId !== 'all') {
             const acc = await prisma.account.findUnique({ where: { id: accountId } });
             if (acc) accounts.push(acc);
         } else {

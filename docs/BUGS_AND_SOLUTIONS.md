@@ -263,6 +263,54 @@ Modal card 的样式设置了 `overflow: 'hidden'`，但内容容器没有设置
 
 ---
 
+## 🐛 Bug #7: 发送失败时邮件状态卡在 PENDING (发件箱残留)
+
+### 问题描述
+
+发送邮件失败（例如发件人账号被删除、网络错误、SMTP 认证失败）时，发件箱（SENT 文件夹）中会留下一封状态为的邮件，且永远无法发送成功或消失。
+
+### 原因分析
+
+`/api/send` 接口采用"先写库后发送"的策略：
+
+1. 先在数据库 `Email` 表插入一条记录，`folder='SENT'`, `localStatus='PENDING'`。
+2. 然后尝试 `transporter.sendMail(...)`。
+3. 如果发送成功，将 `localStatus` 更新为 `NORMAL`。
+
+**Bug 点**：代码没有正确处理 `catch` 块中的状态回滚。当 `sendMail` 抛出异常时，直接返回了 500 错误，而数据库中那条 `PENDING` 的记录没有被标记为失败或删除，导致前端一直显示它在发件箱中。
+
+### 解决方案
+
+在 `catch` 块中捕获错误后，尝试更新该邮件记录的状态为 `FAILED`。
+
+```typescript
+} catch (error) {
+    console.error('Send Error:', error);
+    
+    // Update status to FAILED if record exists
+    if (accountId && providerKey) {
+        try {
+            await prisma.email.update({
+                where: { accountId_providerKey: { accountId, providerKey } },
+                data: { localStatus: 'FAILED' }
+            });
+        } catch (ignore) {}
+    }
+    
+    return NextResponse.json({ error: 'Failed to send email' }, { status: 500 });
+}
+```
+
+### 修复后的行为
+
+前端在收到 500 错误且数据库状态更新后，会提示错误信息，用户可以看到发送失败的状态（需前端配合显示 `FAILED` 状态或允许重发，目前暂时保留编辑状态并报错）。
+
+### 相关文件
+
+- `app/api/send/route.ts`
+
+---
+
 ## 📝 开发注意事项
 
 ### CSS 使用建议
