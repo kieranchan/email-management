@@ -15,7 +15,7 @@ const ACCENT_COLORS = [
 ];
 
 interface Account { id: string; email: string; name: string; tag: string; }
-interface Email { id: string; from: string; to?: string; subject: string; date: string; unread?: boolean; snippet?: string; content?: string; }
+interface Email { id: string; from: string; to?: string; subject: string; date: string; unread?: boolean; snippet?: string; content?: string; archived?: boolean; isDraft?: boolean; }
 interface Tag { id: string; label: string; color: string; }
 
 // Fallback tags if API fails
@@ -318,6 +318,20 @@ export default function Dashboard() {
     if (!form.from) return alert('请选择发件账号');
     const r = await fetch('/api/send', { method: 'POST', body: JSON.stringify({ accountId: form.from, ...form }), headers: { 'Content-Type': 'application/json' } });
     if (r.ok) { setCompose(false); setForm({ from: '', to: '', subject: '', content: '' }); }
+  }
+
+  // Archive/Restore email
+  async function archiveEmail(emailId: string, archive: boolean) {
+    const r = await fetch('/api/actions/archive', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ messageId: emailId, archived: archive })
+    });
+    if (r.ok) {
+      // Close detail panel and refresh list
+      setSelectedEmail(null);
+      await loadEmails();
+    }
   }
 
   const transitionBase = { duration: 0.15, ease: [0.2, 0.8, 0.2, 1] };
@@ -643,9 +657,13 @@ export default function Dashboard() {
 
             {/* Action Bar */}
             <div style={{ height: 64, display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 12, padding: '0 20px', borderTop: '1px solid var(--stroke-1)' }}>
-              <button className="glass-button" style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 16px', cursor: 'pointer', fontSize: 13 }}>
+              <button
+                onClick={() => archiveEmail(selectedEmail.id, !selectedEmail.archived)}
+                className="glass-button"
+                style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 16px', cursor: 'pointer', fontSize: 13 }}
+              >
                 <Archive size={14} />
-                归档
+                {selectedEmail.archived ? '恢复' : '归档'}
               </button>
               <button className="accent-button" style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 20px', cursor: 'pointer', fontSize: 13 }}>
                 <Send size={14} />
