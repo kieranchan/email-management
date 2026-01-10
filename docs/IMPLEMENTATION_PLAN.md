@@ -1,0 +1,182 @@
+# Nexus Mail 风格增强实施计划
+
+> 基于《Nexus Mail 风格管理台：视觉规范与递进式设计方案》的逐步实施计划
+
+## 进度总览
+
+| 阶段 | 任务 | 状态 | 完成日期 |
+|:----:|------|:----:|:--------:|
+| P0 | 全局样式落地 | ✅ 完成 | 2026-01-10 |
+| P1 | 组件状态对齐 S1 | ✅ 完成 | 2026-01-10 |
+| P2 | 数据模型加固 | ✅ 完成 | 2026-01-10 |
+| P2 | API 补齐 | ✅ 完成 | 2026-01-10 |
+| P3 | All Accounts 逻辑 | ⬜ 待开始 | - |
+| P4 | 草稿与 Compose | ⬜ 待开始 | - |
+| P5 | QA 检查 | ⬜ 待开始 | - |
+| P6 | 自动同步与增强 | ⬜ 规划中 | - |
+
+---
+
+## P0: 全局样式落地
+
+### 目标
+
+把设计规范第 5 节的 tokens/glass/hover/按钮/动画搬到 `globals.css`，在 `page.tsx` 里改用这些类。
+
+### 变更文件
+
+- `app/globals.css` - 添加 Design Tokens 和工具类 ✅
+- `app/page.tsx` - 使用新的样式类 🔄 进行中
+
+### Design Tokens 清单
+
+- [x] Color Tokens (bg/surface/stroke/text/accent)
+- [x] Typography Tokens
+- [x] Radius/Spacing Tokens
+- [x] Elevation (shadow) Tokens
+- [x] Motion Tokens
+- [x] Glass 材质类 (.glass)
+- [x] Hover 交互类 (.lift)
+- [x] 按钮类 (.btn-primary, .btn-secondary)
+- [x] Modal 类 (.modal-overlay, .modal-card)
+- [x] Unread bar 样式
+- [x] Focus ring 样式
+- [x] Reduced motion 媒体查询
+- [x] Backdrop-filter 降级
+
+### 组件样式迁移进度
+
+- [x] TopBar 按钮 (同步/写邮件)
+- [x] Compose Modal (overlay/card/inputs/button)
+- [x] Settings Modal (overlay/card)
+- [x] 侧边栏容器 (.glass-lg)
+- [x] 邮件列表项 (.glass .lift)
+
+### 验收标准
+
+- [x] 渐变背景 + 两处柔光（紫/蓝）
+- [x] 面板具备玻璃材质（Tint + Blur + 边缘高光 + 阴影）
+- [x] 强调色只用于 CTA、选中态、未读条
+- [x] hover 仅 1px 上浮
+
+---
+
+## P1: 组件状态对齐 S1
+
+### 目标
+
+重做 AccountItem/FolderItem/MessageRow 的 default/hover/selected/focus/unread 状态。
+
+### 变更文件
+
+- `app/page.tsx` - 组件样式重构
+
+### 状态表
+
+| 组件 | default | hover | selected | focus | unread |
+|------|---------|-------|----------|-------|--------|
+| AccountItem | 透明 | surface-1 + stroke-2 + elev-1 | surface-2 + glow | ring | - |
+| FolderItem | text-3 | text-2 + surface-1 | text-1 + surface-2 + stroke-2 | ring | - |
+| MessageRow | glass + stroke-1 | translateY(-1px) + elev-2 + stroke-2 | surface-2 + glow | ring | text-1 + weight 600 + unread-bar |
+
+### 验收标准
+
+- [x] Hover 仅 1px 上浮 + stroke/elev-2
+- [x] Unread 只在需要时显示渐变条
+- [x] 所有可交互元素有 focus ring
+
+---
+
+## P2: 数据模型加固
+
+### 目标
+
+在 Prisma Email 增加 `providerKey` 唯一键，确保 `archived`、`localStatus` 正确使用。
+
+### 变更文件
+
+- `prisma/schema.prisma`
+
+### Schema 变更
+
+```prisma
+model Email {
+  // 新增
+  providerKey String   // "uid:<uid>" 或 "local:<cuid>"
+  
+  // 修改唯一约束
+  @@unique([accountId, providerKey])  // 替换原有的 [accountId, uid]
+}
+```
+
+### 迁移步骤
+
+1. 修改 schema.prisma
+2. 运行 `npx prisma generate`
+3. 运行 `npx prisma db push`
+
+---
+
+## P2: API 补齐
+
+### 目标
+
+按设计规范 9.4 增补 API 端点。
+
+### 新增 API
+
+- [x] `GET /api/bootstrap` - 首屏数据（counts + accounts）
+- [x] `GET /api/messages` - 邮件列表（支持 scope/folderType/分页）
+- [x] `GET /api/messages/:id` - 邮件详情
+- [x] `POST /api/messages/:id/seen` - 标记已读
+- [x] `POST /api/actions/archive` - 归档/恢复（已有）
+- [x] `POST /api/send` - 发送邮件（已有）
+- [x] `DELETE /api/drafts/:id` - 删除草稿（已有）
+
+### 兼容性
+
+- 考虑将 `/api/inbox` 兼容或替换为 `/api/messages`
+
+---
+
+## P3: All Accounts 逻辑
+
+### 目标
+
+侧边栏增加 "All Accounts"，支持聚合视图。
+
+### 变更
+
+- 侧边栏增加 "All Accounts" 虚拟账号
+- 请求参数带 `scope=all|account`
+- 列表在 `scope=all` 时显示 account chip
+- Compose 在 `scope=all` 强制选择 From，默认 lastUsed
+
+---
+
+## P6: 自动同步与增强 (Roundcube Parity)
+
+### 目标
+
+实现类似 Roundcube 的自动接收体验和丰富功能，打造“指挥中心”。
+
+### 核心功能
+
+- [ ] **实时推送 (IMAP IDLE 2.0)**: Worker 断线重连、实时写入数据库、WebSocket 推送前端。
+- [ ] **后台自动同步**: 定时轮询所有账号，确保数据一致性。
+- [ ] **丰富功能**: 附件管理、富文本编辑器优化、快捷回复。
+
+---
+
+## 变更日志
+
+| 日期 | 阶段 | 变更内容 |
+|------|------|----------|
+| 2026-01-10 | P2 | 完成 API 补齐：新增 bootstrap、messages、messages/:id、messages/:id/seen 四个 API 端点，全部测试通过 |
+| 2026-01-10 | P2 | 完成数据模型加固：Email 模型添加 providerKey 字段，更新唯一约束为 [accountId, providerKey]，手动迁移 28 条现有数据 |
+| 2026-01-10 | P2 | providerKey 全链路修复：sync/worker/upsert 改用 accountId_providerKey 唯一键写入 uid + providerKey；发送 API 插入本地 PENDING 记录并成功后改为 NORMAL；补充 drafts DELETE；/api/messages scope=account 强制要求 accountId |
+| 2026-01-10 | 修复 | Settings Modal 滚动和关闭闪烁：添加 maxHeight/flex 布局使内容可滚动；移除 CSS animation 避免与 Framer Motion 冲突 |
+| 2026-01-10 | P1 | 完成组件状态对齐：AccountItem/FolderItem/MessageRow 使用统一样式类，Hover 1px 浮动，未读条按状态显示，增加键盘可达性与 focus ring |
+| 2026-01-10 | P0 | ✅ 完成全局样式落地：添加 Design Tokens 到 globals.css；迁移 TopBar 按钮、Compose/Settings Modal、侧边栏容器、邮件列表项样式 |
+| 2026-01-10 | P0 | 完成 P0 验收：全局样式集中到 globals.css，移除 layout 内联样式；修复 MessageRow hover/未读逻辑与 API 未读标志解析 |
+| 2026-01-10 | - | 创建实施计划文档 |

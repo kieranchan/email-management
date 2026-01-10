@@ -198,20 +198,24 @@ class AccountWatcher {
                     content = await parseEmailContent(msg.source);
                 }
 
+                const providerKey = `uid:${msg.uid}`;
+
                 // Save to database
                 const email = await prisma.email.upsert({
                     where: {
-                        accountId_uid: {
+                        accountId_providerKey: {
                             accountId: this.account.id,
-                            uid: msg.uid,
+                            providerKey,
                         },
                     },
                     update: {
+                        uid: msg.uid,
                         flags: JSON.stringify(Array.from(msg.flags || [])),
                         content: content || null,
                     },
                     create: {
                         accountId: this.account.id,
+                        providerKey,
                         uid: msg.uid,
                         subject: msg.envelope.subject || '(No Subject)',
                         from: msg.envelope.from?.[0]?.address || 'Unknown',

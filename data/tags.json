@@ -1,10 +1,5 @@
 [
   {
-    "id": "vip",
-    "label": "VIP",
-    "color": "#fbbf24"
-  },
-  {
     "id": "important",
     "label": "重要",
     "color": "#a78bfa"

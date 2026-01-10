@@ -1,4 +1,788 @@
-/* Email content styles */
+/* ============================================
+   Nexus Mail Design System - Tokens & Utilities
+   Based on: 视觉规范与递进式设计方案
+   ============================================ */
+
+:root {
+    /* === Font === */
+    --font-ui: system-ui, -apple-system, Segoe UI, Roboto, Inter, sans-serif;
+
+    /* === Background Colors === */
+    --bg-0: #0B0D12;
+    --bg-1: #0F1220;
+    --bg-2: #14182A;
+
+    /* === Surfaces (Glass Tint) === */
+    --surface-1: rgba(255, 255, 255, 0.06);
+    --surface-2: rgba(255, 255, 255, 0.09);
+    --surface-3: rgba(255, 255, 255, 0.12);
+
+    /* === Stroke / Divider === */
+    --stroke-1: rgba(255, 255, 255, 0.10);
+    --stroke-2: rgba(255, 255, 255, 0.16);
+    --divider: rgba(255, 255, 255, 0.06);
+
+    /* === Text Colors === */
+    --text-1: rgba(255, 255, 255, 0.92);
+    --text-2: rgba(255, 255, 255, 0.72);
+    --text-3: rgba(255, 255, 255, 0.52);
+    --text-4: rgba(255, 255, 255, 0.38);
+
+    /* === Accent (Purple-Blue) === */
+    --accent-1: #8B5CF6;
+    --accent-2: #60A5FA;
+    --accent-glow-1: rgba(139, 92, 246, 0.45);
+    --accent-glow-2: rgba(96, 165, 250, 0.35);
+
+    /* === Radius === */
+    --r-sm: 12px;
+    --r-md: 16px;
+    --r-lg: 22px;
+
+    /* === Spacing === */
+    --s-1: 8px;
+    --s-2: 12px;
+    --s-3: 16px;
+    --s-4: 24px;
+
+    /* === Elevation (Shadows) === */
+    --elev-1: 0 10px 40px rgba(0, 0, 0, 0.35);
+    --elev-2: 0 14px 55px rgba(0, 0, 0, 0.45);
+    --elev-3: 0 22px 85px rgba(0, 0, 0, 0.55);
+
+    /* === Glass Inset Highlights === */
+    --glass-inset-top: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+    --glass-inset-bottom: inset 0 -1px 0 rgba(0, 0, 0, 0.25);
+
+    /* === Motion === */
+    --dur-fast: 120ms;
+    --dur-base: 150ms;
+    --dur-modal: 180ms;
+    --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+/* === Typography Tokens === */
+.text-title {
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--text-1);
+    line-height: 1.25;
+}
+
+.text-subtitle {
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--text-1);
+    line-height: 1.25;
+}
+
+.text-subtitle-unread {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-1);
+    line-height: 1.25;
+}
+
+.text-body {
+    font-size: 13px;
+    font-weight: 400;
+    color: var(--text-2);
+    line-height: 1.6;
+}
+
+.text-meta {
+    font-size: 12px;
+    font-weight: 400;
+    color: var(--text-3);
+    line-height: 1.25;
+}
+
+/* === Glass Material === */
+.glass {
+    background: var(--surface-1);
+    border: 1px solid var(--stroke-1);
+    border-radius: var(--r-md);
+    box-shadow: var(--elev-1), var(--glass-inset-top), var(--glass-inset-bottom);
+    -webkit-backdrop-filter: blur(16px) saturate(120%);
+    backdrop-filter: blur(16px) saturate(120%);
+}
+
+.glass-lg {
+    background: var(--surface-1);
+    border: 1px solid var(--stroke-1);
+    border-radius: var(--r-lg);
+    box-shadow: var(--elev-1), var(--glass-inset-top), var(--glass-inset-bottom);
+    -webkit-backdrop-filter: blur(16px) saturate(120%);
+    backdrop-filter: blur(16px) saturate(120%);
+}
+
+/* Backdrop-filter fallback */
+@supports not ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
+
+    .glass,
+    .glass-lg {
+        background: rgba(255, 255, 255, 0.12);
+    }
+}
+
+/* === Hover Lift Effect === */
+.lift {
+    transition:
+        transform var(--dur-base) var(--ease-out),
+        box-shadow var(--dur-base) var(--ease-out),
+        border-color var(--dur-base) var(--ease-out),
+        background var(--dur-base) var(--ease-out);
+}
+
+.lift:hover {
+    transform: translateY(-1px);
+    border-color: var(--stroke-2);
+    background: var(--surface-2);
+    box-shadow: var(--elev-2), var(--glass-inset-top), var(--glass-inset-bottom);
+}
+
+/* === Unread Bar === */
+.unread-bar {
+    width: 2px;
+    border-radius: 999px;
+    background: linear-gradient(180deg, var(--accent-1), var(--accent-2));
+    box-shadow: 0 0 14px var(--accent-glow-1);
+}
+
+/* === Buttons === */
+.btn-primary {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--s-1);
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    background: linear-gradient(135deg, rgba(139, 92, 246, 0.95), rgba(96, 165, 250, 0.85));
+    color: var(--text-1);
+    border-radius: 999px;
+    padding: 10px 14px;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    box-shadow:
+        0 12px 35px rgba(0, 0, 0, 0.45),
+        inset 0 0 0 1px rgba(255, 255, 255, 0.06),
+        0 0 28px var(--accent-glow-1);
+    transition: transform var(--dur-base) var(--ease-out), box-shadow var(--dur-base) var(--ease-out);
+}
+
+.btn-primary:hover {
+    transform: translateY(-1px);
+    box-shadow:
+        0 16px 45px rgba(0, 0, 0, 0.55),
+        inset 0 0 0 1px rgba(255, 255, 255, 0.06),
+        0 0 36px var(--accent-glow-1);
+}
+
+.btn-primary:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none;
+}
+
+.btn-secondary {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--s-1);
+    background: var(--surface-1);
+    border: 1px solid var(--stroke-1);
+    color: var(--text-1);
+    border-radius: 999px;
+    padding: 10px 14px;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    box-shadow: var(--elev-1), var(--glass-inset-top), var(--glass-inset-bottom);
+    -webkit-backdrop-filter: blur(16px) saturate(120%);
+    backdrop-filter: blur(16px) saturate(120%);
+    transition: transform var(--dur-base) var(--ease-out), border-color var(--dur-base) var(--ease-out);
+}
+
+.btn-secondary:hover {
+    transform: translateY(-1px);
+    border-color: var(--stroke-2);
+}
+
+.btn-secondary:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none;
+}
+
+/* === Icons in Buttons === */
+.btn-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    background: var(--surface-1);
+    border: 1px solid var(--stroke-1);
+    border-radius: var(--r-sm);
+    color: var(--text-2);
+    cursor: pointer;
+    transition: all var(--dur-base) var(--ease-out);
+}
+
+.btn-icon:hover {
+    background: var(--surface-2);
+    border-color: var(--stroke-2);
+    color: var(--text-1);
+}
+
+/* === Fade In Animation === */
+.fade-in {
+    animation: fadeIn var(--dur-base) var(--ease-out) both;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(2px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* === Modal === */
+.modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.45);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+    /* animation removed - Framer Motion handles this */
+}
+
+@keyframes overlayIn {
+    from {
+        opacity: 0;
+    }
+
+    to {
+        opacity: 1;
+    }
+}
+
+.modal-card {
+    width: min(720px, 92vw);
+    max-height: 90vh;
+    overflow-y: auto;
+    border-radius: var(--r-lg);
+    background: var(--surface-3);
+    border: 1px solid var(--stroke-1);
+    box-shadow: var(--elev-3), var(--glass-inset-top), var(--glass-inset-bottom);
+    -webkit-backdrop-filter: blur(18px) saturate(120%);
+    backdrop-filter: blur(18px) saturate(120%);
+    /* animation removed - Framer Motion handles this */
+}
+
+@keyframes modalIn {
+    from {
+        opacity: 0;
+        transform: translateY(6px) scale(0.98);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+/* === Focus Ring === */
+.ring {
+    outline: 2px solid rgba(139, 92, 246, 0.35);
+    outline-offset: 2px;
+}
+
+*:focus-visible {
+    outline: 2px solid rgba(139, 92, 246, 0.35);
+    outline-offset: 2px;
+}
+
+/* === Selected State === */
+.selected {
+    background: var(--surface-2);
+    border-color: var(--stroke-2);
+    box-shadow: var(--elev-2), var(--glass-inset-top), var(--glass-inset-bottom), 0 0 20px var(--accent-glow-1);
+}
+
+/* === Input Fields === */
+.input-glass {
+    width: 100%;
+    padding: var(--s-2) var(--s-3);
+    background: var(--surface-1);
+    border: 1px solid var(--stroke-1);
+    border-radius: var(--r-sm);
+    color: var(--text-1);
+    font-size: 14px;
+    font-family: var(--font-ui);
+    transition: border-color var(--dur-base) var(--ease-out);
+}
+
+.input-glass:focus {
+    outline: none;
+    border-color: var(--accent-1);
+}
+
+.input-glass::placeholder {
+    color: var(--text-4);
+}
+
+/* === Textarea === */
+.textarea-glass {
+    width: 100%;
+    min-height: 120px;
+    padding: var(--s-3);
+    background: var(--surface-1);
+    border: 1px solid var(--stroke-1);
+    border-radius: var(--r-sm);
+    color: var(--text-1);
+    font-size: 14px;
+    font-family: var(--font-ui);
+    resize: vertical;
+    transition: border-color var(--dur-base) var(--ease-out);
+}
+
+.textarea-glass:focus {
+    outline: none;
+    border-color: var(--accent-1);
+}
+
+/* === Reduced Motion === */
+@media (prefers-reduced-motion: reduce) {
+
+    .lift,
+    .fade-in,
+    .modal-overlay,
+    .modal-card,
+    .btn-primary,
+    .btn-secondary {
+        transition: none !important;
+        animation: none !important;
+    }
+
+    .lift:hover {
+        transform: none;
+    }
+}
+
+/* === Body Base Styles === */
+body {
+    margin: 0;
+    font-family: var(--font-ui);
+    color: var(--text-2);
+    background:
+        radial-gradient(900px 600px at 72% 18%, rgba(139, 92, 246, 0.18), transparent 60%),
+        radial-gradient(820px 560px at 20% 84%, rgba(96, 165, 250, 0.12), transparent 55%),
+        linear-gradient(160deg, var(--bg-0), var(--bg-1));
+    min-height: 100vh;
+}
+
+/* Optional noise: add class "noise" to body if you want */
+body.noise::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    opacity: 0.06;
+    mix-blend-mode: overlay;
+    background-image:
+        url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='120' height='120' filter='url(%23n)' opacity='.55'/%3E%3C/svg%3E");
+}
+
+/* Optional blur enhancement */
+body.blur-enhanced .glass,
+body.blur-enhanced .glass-lg {
+    -webkit-backdrop-filter: blur(24px) saturate(140%);
+    backdrop-filter: blur(24px) saturate(140%);
+}
+
+/* ============================================
+   Email Content Styles (Original)
+   ============================================ */
+
+:root {
+    /* Typography & motion */
+    --font-ui: system-ui, -apple-system, Segoe UI, Roboto, Inter, sans-serif;
+    --accent: rgba(139, 92, 246, 0.45);
+    --dur-fast: 120ms;
+    --dur-base: 150ms;
+    --dur-modal: 180ms;
+    --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
+
+    /* Radius & spacing */
+    --r-sm: 12px;
+    --r-md: 16px;
+    --r-lg: 22px;
+    --s-1: 8px;
+    --s-2: 12px;
+    --s-3: 16px;
+    --s-4: 24px;
+}
+
+[data-theme='dark'] {
+    color-scheme: dark;
+    --bg-0: #0B0D12;
+    --bg-1: #0F1220;
+    --bg-2: #14182A;
+
+    --surface-1: rgba(255, 255, 255, 0.06);
+    --surface-2: rgba(255, 255, 255, 0.09);
+    --surface-3: rgba(255, 255, 255, 0.12);
+
+    --stroke-1: rgba(255, 255, 255, 0.10);
+    --stroke-2: rgba(255, 255, 255, 0.16);
+    --divider: rgba(255, 255, 255, 0.06);
+
+    --text-1: rgba(255, 255, 255, 0.92);
+    --text-2: rgba(255, 255, 255, 0.72);
+    --text-3: rgba(255, 255, 255, 0.52);
+    --text-4: rgba(255, 255, 255, 0.38);
+
+    --elev-1: 0 10px 40px rgba(0, 0, 0, 0.35);
+    --elev-2: 0 14px 55px rgba(0, 0, 0, 0.45);
+    --elev-3: 0 22px 85px rgba(0, 0, 0, 0.55);
+
+    --glass-inset-top: 0 1px 0 rgba(255, 255, 255, 0.06) inset;
+    --glass-inset-bottom: 0 -1px 0 rgba(0, 0, 0, 0.25) inset;
+
+    --accent-1: #8B5CF6;
+    --accent-2: #60A5FA;
+    --accent-glow-1: rgba(139, 92, 246, 0.45);
+    --accent-glow-2: rgba(96, 165, 250, 0.35);
+}
+
+[data-theme='light'] {
+    --bg-0: #f8f9fa;
+    --bg-1: #ffffff;
+    --bg-2: #e9ecef;
+    --surface-1: rgba(0, 0, 0, 0.03);
+    --surface-2: #ffffff;
+    --surface-3: #f1f3f5;
+    --stroke-1: #e9ecef;
+    --stroke-2: #dee2e6;
+    --divider: rgba(0, 0, 0, 0.04);
+    --text-1: #212529;
+    --text-2: #495057;
+    --text-3: #868e96;
+    --text-4: #adb5bd;
+    --elev-1: 0 2px 5px rgba(0, 0, 0, 0.05);
+    --elev-2: 0 4px 10px rgba(0, 0, 0, 0.1);
+    --elev-3: 0 8px 20px rgba(0, 0, 0, 0.15);
+    --glass-inset-top: 0 1px 0 rgba(255, 255, 255, 0.5) inset;
+    --glass-inset-bottom: 0 -1px 0 rgba(0, 0, 0, 0.05) inset;
+    --accent-1: #8B5CF6;
+    --accent-2: #60A5FA;
+    --accent-glow-1: rgba(139, 92, 246, 0.25);
+    --accent-glow-2: rgba(96, 165, 250, 0.2);
+}
+
+*,
+*::before,
+*::after {
+    box-sizing: border-box;
+}
+
+html,
+body {
+    height: 100%;
+    width: 100%;
+    overflow: hidden;
+    margin: 0;
+    padding: 0;
+    background-color: var(--bg-0);
+    color: var(--text-2);
+    font-family: var(--font-ui);
+    transition: background-color 0.3s, color 0.3s;
+}
+
+[data-theme='dark'] body {
+    background:
+        radial-gradient(900px 600px at 72% 18%, rgba(139, 92, 246, 0.18), transparent 60%),
+        radial-gradient(820px 560px at 20% 84%, rgba(96, 165, 250, 0.12), transparent 55%),
+        linear-gradient(160deg, var(--bg-0), var(--bg-1));
+}
+
+body.noise::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    opacity: 0.06;
+    mix-blend-mode: overlay;
+    background-image:
+        url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+    z-index: -1;
+}
+
+.app-shell {
+    display: flex;
+    height: 100vh;
+    width: 100vw;
+}
+
+.glass {
+    background: var(--surface-1);
+    border: 1px solid var(--stroke-1);
+    border-radius: var(--r-md);
+    box-shadow: var(--elev-1), var(--glass-inset-top), var(--glass-inset-bottom);
+    -webkit-backdrop-filter: blur(16px) saturate(120%);
+    backdrop-filter: blur(16px) saturate(120%);
+}
+
+.glass-panel {
+    background: var(--surface-1);
+    -webkit-backdrop-filter: blur(16px) saturate(120%);
+    backdrop-filter: blur(16px) saturate(120%);
+    border-right: 1px solid var(--stroke-1);
+    box-shadow: var(--elev-1), var(--glass-inset-top), var(--glass-inset-bottom);
+}
+
+@supports not ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
+
+    .glass,
+    .glass-panel,
+    .glass-button,
+    .btn-secondary,
+    .modal-card {
+        background: rgba(255, 255, 255, 0.12);
+    }
+}
+
+.lift {
+    transition:
+        transform var(--dur-base) var(--ease-out),
+        box-shadow var(--dur-base) var(--ease-out),
+        border-color var(--dur-base) var(--ease-out),
+        background var(--dur-base) var(--ease-out);
+}
+
+.lift:hover {
+    transform: translateY(-1px);
+    border-color: var(--stroke-2);
+    background: var(--surface-2);
+    box-shadow: var(--elev-2), var(--glass-inset-top), var(--glass-inset-bottom);
+}
+
+.glass-button {
+    background: var(--surface-1);
+    border: 1px solid var(--stroke-1);
+    color: var(--text-1);
+    border-radius: 999px;
+    transition: transform var(--dur-base) var(--ease-out), border-color var(--dur-base) var(--ease-out);
+    box-shadow: var(--elev-1), var(--glass-inset-top), var(--glass-inset-bottom);
+    -webkit-backdrop-filter: blur(16px) saturate(120%);
+    backdrop-filter: blur(16px) saturate(120%);
+}
+
+.glass-button:hover {
+    transform: translateY(-1px);
+    border-color: var(--stroke-2);
+}
+
+.btn-primary {
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    background: linear-gradient(135deg, rgba(139, 92, 246, 0.95), rgba(96, 165, 250, 0.85));
+    color: rgba(255, 255, 255, 0.92);
+    border-radius: 999px;
+    padding: 10px 14px;
+    box-shadow:
+        0 12px 35px rgba(0, 0, 0, 0.45),
+        0 0 0 1px rgba(255, 255, 255, 0.06) inset,
+        0 0 15px var(--accent-glow-1);
+    transition: transform var(--dur-base) var(--ease-out), box-shadow var(--dur-base) var(--ease-out);
+}
+
+.btn-primary:hover {
+    transform: translateY(-1px);
+    box-shadow:
+        0 16px 45px rgba(0, 0, 0, 0.55),
+        0 0 0 1px rgba(255, 255, 255, 0.06) inset,
+        0 0 15px var(--accent-glow-1);
+}
+
+.btn-secondary {
+    background: var(--surface-1);
+    border: 1px solid var(--stroke-1);
+    color: var(--text-1);
+    border-radius: 999px;
+    padding: 10px 14px;
+    box-shadow: var(--elev-1), var(--glass-inset-top), var(--glass-inset-bottom);
+    -webkit-backdrop-filter: blur(16px) saturate(120%);
+    backdrop-filter: blur(16px) saturate(120%);
+    transition: transform var(--dur-base) var(--ease-out), border-color var(--dur-base) var(--ease-out);
+}
+
+.btn-secondary:hover {
+    transform: translateY(-1px);
+    border-color: var(--stroke-2);
+}
+
+.list-item {
+    transition: all 0.1s;
+    border-radius: var(--r-md);
+    border: 1px solid transparent;
+}
+
+.list-item:hover {
+    transform: translateY(-1px);
+    background: var(--surface-2);
+    border-color: var(--stroke-2);
+    box-shadow: var(--elev-2), var(--glass-inset-top), var(--glass-inset-bottom);
+}
+
+.list-item.selected {
+    background: var(--surface-2);
+    border-color: var(--stroke-2);
+    box-shadow: 0 0 15px rgba(139, 92, 246, 0.15), inset 0 0 0 1px var(--stroke-2);
+}
+
+/* ============================================
+   Component-Specific Styles (P1)
+   ============================================ */
+
+/* AccountItem - Sidebar account list */
+.account-item {
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: var(--r-md);
+    transition: all var(--dur-base) var(--ease-out);
+}
+
+.account-item:hover {
+    background: var(--surface-1);
+    border-color: var(--stroke-2);
+    box-shadow: var(--elev-1);
+}
+
+.account-item.selected {
+    background: var(--surface-2);
+    border-color: var(--stroke-2);
+    box-shadow: 0 0 15px var(--accent-glow-1), var(--elev-1);
+}
+
+.account-item:focus-visible {
+    outline: 2px solid var(--accent-1);
+    outline-offset: 2px;
+}
+
+/* FolderItem - Sidebar navigation (Inbox/Sent/Drafts/Archive) */
+.folder-item {
+    color: var(--text-3);
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: var(--r-md);
+    transition: all var(--dur-base) var(--ease-out);
+}
+
+.folder-item:hover {
+    color: var(--text-2);
+    background: var(--surface-1);
+}
+
+.folder-item.selected {
+    color: var(--text-1);
+    background: var(--surface-2);
+    border-color: var(--stroke-2);
+}
+
+.folder-item:focus-visible {
+    outline: 2px solid var(--accent-1);
+    outline-offset: 2px;
+}
+
+
+.unread-indicator,
+.unread-bar {
+    width: 2px;
+    border-radius: 999px;
+    background: linear-gradient(180deg, var(--accent-1), var(--accent-2));
+    box-shadow: 0 0 14px var(--accent-glow-1);
+}
+
+.fade-in {
+    animation: fadeIn var(--dur-base) var(--ease-out) both;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(2px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Duplicate modal styles removed - see lines 256-300 */
+
+.ring {
+    outline: 2px solid rgba(139, 92, 246, 0.35);
+    outline-offset: 2px;
+}
+
+.message-row {
+    background: var(--surface-1);
+    border: 1px solid var(--stroke-1);
+    border-radius: var(--r-md);
+    box-shadow: var(--elev-1), var(--glass-inset-top), var(--glass-inset-bottom);
+    transition:
+        transform var(--dur-base) var(--ease-out),
+        box-shadow var(--dur-base) var(--ease-out),
+        border-color var(--dur-base) var(--ease-out),
+        background var(--dur-base) var(--ease-out);
+}
+
+.message-row:hover {
+    transform: translateY(-1px);
+    background: var(--surface-2);
+    border-color: var(--stroke-2);
+    box-shadow: var(--elev-2), var(--glass-inset-top), var(--glass-inset-bottom);
+}
+
+.message-row.selected {
+    background: var(--surface-2);
+    border-color: var(--stroke-2);
+    box-shadow: 0 0 15px var(--accent-glow-1), var(--glass-inset-top), var(--glass-inset-bottom);
+}
+
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+.animate-spin {
+    animation: spin 1s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+
+    .lift,
+    .fade-in,
+    .modal-overlay,
+    .modal-card,
+    .message-row {
+        transition: none !important;
+        animation: none !important;
+        transform: none !important;
+    }
+}
+
+/* Email content styles (iframe body) */
 .email-content {
     font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
 }
@@ -17,7 +801,6 @@
     height: auto;
 }
 
-/* Quoted replies - Gmail/Outlook style */
 .email-content blockquote,
 .email-content .gmail_quote {
     margin: 8px 0;
@@ -26,7 +809,6 @@
     color: #666;
 }
 
-/* Preformatted text */
 .email-content pre {
     background: #f0f0f0;
     padding: 10px;
@@ -35,7 +817,6 @@
     font-size: 13px;
 }
 
-/* Tables */
 .email-content table {
     border-collapse: collapse;
     max-width: 100%;
@@ -47,12 +828,10 @@
     border: 1px solid #ddd;
 }
 
-/* Paragraphs */
 .email-content p {
     margin: 0 0 8px 0;
 }
 
-/* Horizontal rule */
 .email-content hr {
     border: none;
     border-top: 1px solid #ddd;

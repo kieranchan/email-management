@@ -41,23 +41,36 @@ export async function GET(request: Request) {
         });
 
         // Map to response format with account info for All Accounts support
-        const items = emails.map(email => ({
-            id: email.id,
-            accountId: email.accountId,
-            accountLabel: email.account.name || email.account.email.split('@')[0],
-            accountColorTag: email.account.tag,
-            uid: email.uid,
-            from: email.from,
-            to: email.to,
-            subject: email.subject,
-            date: email.date?.toISOString(),
-            unread: !email.flags?.includes('\\Seen'),
-            snippet: email.content?.replace(/<[^>]*>/g, '').slice(0, 100),
-            content: email.content,
-            folder: email.folder,
-            archived: email.archived,
-            localStatus: email.localStatus,
-        }));
+        const items = emails.map(email => {
+            let parsedFlags: string[] = [];
+            if (email.flags) {
+                try {
+                    const raw = JSON.parse(email.flags);
+                    if (Array.isArray(raw)) {
+                        parsedFlags = raw.map((f) => String(f));
+                    }
+                } catch { /* ignore parse errors */ }
+            }
+            const isUnread = !parsedFlags.some(f => f.toUpperCase() === '\\SEEN');
+
+            return {
+                id: email.id,
+                accountId: email.accountId,
+                accountLabel: email.account.name || email.account.email.split('@')[0],
+                accountColorTag: email.account.tag,
+                uid: email.uid,
+                from: email.from,
+                to: email.to,
+                subject: email.subject,
+                date: email.date?.toISOString(),
+                unread: isUnread,
+                snippet: email.content?.replace(/<[^>]*>/g, '').slice(0, 100),
+                content: email.content,
+                folder: email.folder,
+                archived: email.archived,
+                localStatus: email.localStatus,
+            };
+        });
 
         return NextResponse.json(items);
     } catch (error) {

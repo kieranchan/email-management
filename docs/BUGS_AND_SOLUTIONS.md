@@ -222,6 +222,47 @@ HTML 邮件通常包含内嵌的 `<style>` 标签，例如：
 
 ---
 
+## 🐛 Bug #5: Settings Modal 内容无法滚动
+
+### 问题描述
+
+Settings Modal 内容过多时（如标签管理列表较长），底部内容被截断，无法滚动查看。
+
+### 问题原因
+
+Modal card 的样式设置了 `overflow: 'hidden'`，但内容容器没有设置 `overflow-y: auto` 和合适的高度限制。
+
+### 解决方案
+
+修改 `page.tsx` 中 Settings Modal 的结构，添加 `maxHeight: '85vh'`、`display: 'flex'`、`flexDirection: 'column'`，内容区域添加 `overflowY: 'auto'`、`flex: 1`。
+
+### 相关文件
+
+- `app/page.tsx` - Settings Modal 结构 (约 line 716-721)
+
+---
+
+## 🐛 Bug #6: Settings Modal 关闭时闪烁
+
+### 问题描述
+
+关闭 Settings Modal 时，界面会"闪一下"才完全关闭，动画不流畅。
+
+### 问题原因
+
+`globals.css` 中的 CSS `animation: overlayIn` 和 `animation: modalIn` 与 Framer Motion 的 `exit` 动画产生冲突。此外存在重复的 modal 样式定义。
+
+### 解决方案
+
+1. 移除 `.modal-overlay` 和 `.modal-card` 的 CSS animation 属性
+2. 删除重复的样式定义，只保留一组 modal 样式
+
+### 相关文件
+
+- `app/globals.css` - Modal 样式 (line 255-300)
+
+---
+
 ## 📝 开发注意事项
 
 ### CSS 使用建议
@@ -230,6 +271,7 @@ HTML 邮件通常包含内嵌的 `<style>` 标签，例如：
 2. **避免使用 `::-webkit-scrollbar`** - 在 Next.js 16 + Tailwind 4 环境下会产生渲染问题
 3. **使用 `scrollbar-width` 和 `scrollbar-color`** - 更安全的跨浏览器方案
 4. **渲染外部 HTML 时使用 iframe** - 防止 CSS 泄漏
+5. **避免 CSS animation 与 Framer Motion 冲突** - 使用 JS 动画库时，不要在同一元素上同时使用 CSS animation
 
 ### 技术栈版本
 
@@ -240,4 +282,4 @@ HTML 邮件通常包含内嵌的 `<style>` 标签，例如：
 
 ---
 
-*最后更新: 2026-01-09*
+*最后更新: 2026-01-10*

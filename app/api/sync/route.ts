@@ -71,19 +71,23 @@ async function syncAccount(account: Account) {
                     }
                 }
 
+                const providerKey = `uid:${msg.uid}`;
+
                 await prisma.email.upsert({
                     where: {
-                        accountId_uid: {
+                        accountId_providerKey: {
                             accountId: account.id,
-                            uid: msg.uid,
+                            providerKey,
                         },
                     },
                     update: {
                         flags: JSON.stringify(Array.from(msg.flags || [])),
                         content: content || null,
+                        uid: msg.uid,
                     },
                     create: {
                         accountId: account.id,
+                        providerKey,
                         uid: msg.uid,
                         subject: msg.envelope.subject || '(No Subject)',
                         from: msg.envelope.from?.[0]?.address || 'Unknown',

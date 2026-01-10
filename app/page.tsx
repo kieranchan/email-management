@@ -141,18 +141,15 @@ export default function Dashboard() {
     const r = await fetch(url);
     if (r.ok) {
       const data = await r.json();
-      const enhanced = data.map((e: Email & { snippet?: string }, i: number) => {
+      const enhanced = data.map((e: Email & { snippet?: string }) => {
         // Use snippet from API or generate from content
         let snippet = e.snippet || '';
         if (!snippet && e.content) {
           const text = e.content.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
           snippet = text.length > 100 ? text.substring(0, 100) + '...' : text;
         }
-        return {
-          ...e,
-          unread: i < 2 && activeFolder === 'inbox',
-          snippet: snippet || '(无内容)'
-        };
+        const unread = typeof e.unread === 'boolean' ? e.unread : false;
+        return { ...e, unread, snippet: snippet || '(???)' };
       });
       setEmails(enhanced);
     }
@@ -341,7 +338,7 @@ export default function Dashboard() {
   return (
     <div className="app-shell">
       {/* Sidebar */}
-      <div className="glass-panel" style={{ width: 260, display: 'flex', flexDirection: 'column', zIndex: 10, padding: 0 }}>
+      <div className="glass-lg" style={{ width: 260, display: 'flex', flexDirection: 'column', zIndex: 10, padding: 0 }}>
         {/* Header */}
         <div style={{ height: 64, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 20px', borderBottom: '1px solid var(--stroke-1)' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -370,8 +367,22 @@ export default function Dashboard() {
             const isSelected = selected === a.id;
             const isEditingTag = editingTagId === a.id;
             return (
-              <div key={a.id} className={`list-item ${isSelected ? 'selected' : ''}`} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '8px 12px', cursor: 'pointer', marginBottom: 4, position: 'relative', zIndex: isEditingTag ? 20 : 1 }}>
-                <div onClick={() => setSelected(isSelected ? null : a.id)} style={{ display: 'flex', alignItems: 'center', gap: 12, flex: 1, minWidth: 0 }}>
+              <div
+                key={a.id}
+                className={`account-item ${isSelected ? 'selected' : ''}`}
+                tabIndex={0}
+                role="button"
+                aria-pressed={isSelected}
+                onClick={() => setSelected(isSelected ? null : a.id)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    setSelected(isSelected ? null : a.id);
+                  }
+                }}
+                style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '8px 12px', cursor: 'pointer', marginBottom: 4, position: 'relative', zIndex: isEditingTag ? 20 : 1 }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12, flex: 1, minWidth: 0 }}>
                   <div style={{ width: 32, height: 32, borderRadius: '50%', background: getColor(a.name), display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 600, color: '#fff', flexShrink: 0, boxShadow: '0 2px 5px rgba(0,0,0,0.2)' }}>
                     {a.name?.[0]?.toUpperCase()}
                   </div>
@@ -424,9 +435,17 @@ export default function Dashboard() {
             return (
               <div
                 key={n.id}
+                role="button"
+                tabIndex={0}
                 onClick={() => setActiveFolder(n.id)}
-                className={`list-item ${isActive ? 'selected' : ''}`}
-                style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 12px', cursor: 'pointer', color: isActive ? 'var(--text-1)' : 'var(--text-2)', marginBottom: 2 }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    setActiveFolder(n.id);
+                  }
+                }}
+                className={`folder-item ${isActive ? 'selected' : ''}`}
+                style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 12px', cursor: 'pointer', marginBottom: 2 }}
               >
                 <n.icon size={18} style={{ opacity: isActive ? 1 : 0.7 }} />
                 <span style={{ fontSize: 13, fontWeight: isActive ? 500 : 400 }}>{n.label}</span>
@@ -451,11 +470,11 @@ export default function Dashboard() {
             )}
           </div>
           <div style={{ display: 'flex', gap: 12 }}>
-            <button onClick={sync} disabled={syncing} className="glass-button" style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 20px', cursor: 'pointer', fontSize: 13, fontWeight: 500 }}>
+            <button onClick={sync} disabled={syncing} className="btn-secondary">
               <RefreshCw size={14} className={syncing ? 'animate-spin' : ''} />
               同步
             </button>
-            <button onClick={() => setCompose(true)} className="accent-button" style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 24px', cursor: 'pointer', fontSize: 14, fontWeight: 600 }}>
+            <button onClick={() => setCompose(true)} className="btn-primary">
               <Send size={14} />
               写邮件
             </button>
@@ -473,8 +492,24 @@ export default function Dashboard() {
             </div>
           )}
           {emails.map((e, i) => (
-            <motion.div key={e.id} onClick={() => setSelectedEmail(e)} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.03, ...transitionBase }} className={`list-item ${e.unread ? 'unread' : ''} ${selectedEmail?.id === e.id ? 'selected' : ''}`} style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '14px 20px', background: selectedEmail?.id === e.id ? 'var(--surface-2)' : 'var(--surface-1)', border: `1px solid ${selectedEmail?.id === e.id ? 'var(--stroke-2)' : 'var(--stroke-1)'}`, borderRadius: 16, marginBottom: 10, cursor: 'pointer', position: 'relative', overflow: 'hidden' }}>
-              {e.unread && <div style={{ position: 'absolute', left: 0, top: 12, bottom: 12, width: 3, borderTopRightRadius: 3, borderBottomRightRadius: 3, background: 'linear-gradient(180deg, #8B5CF6, #60A5FA)', boxShadow: '0 0 10px rgba(139,92,246,0.6)' }} />}
+            <motion.div
+              key={e.id}
+              role="button"
+              tabIndex={0}
+              onClick={() => setSelectedEmail(e)}
+              onKeyDown={(ev) => {
+                if (ev.key === 'Enter' || ev.key === ' ') {
+                  ev.preventDefault();
+                  setSelectedEmail(e);
+                }
+              }}
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: i * 0.03, ...transitionBase }}
+              className={`message-row ${e.unread ? 'unread' : ''} ${selectedEmail?.id === e.id ? 'selected' : ''}`}
+              style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '14px 20px', marginBottom: 10, cursor: 'pointer', position: 'relative', overflow: 'hidden' }}
+            >
+              {e.unread && <div className="unread-indicator" style={{ position: 'absolute', left: 0, top: 12, bottom: 12, borderTopRightRadius: 3, borderBottomRightRadius: 3 }} />}
               <div style={{ width: 40, height: 40, borderRadius: '50%', background: getColor(e.from), display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 15, fontWeight: 600, color: '#fff', flexShrink: 0, boxShadow: '0 2px 8px rgba(0,0,0,0.15)', marginLeft: e.unread ? 6 : 0 }}>
                 {e.from?.[0]?.toUpperCase()}
               </div>
@@ -504,7 +539,7 @@ export default function Dashboard() {
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: 20 }}
             transition={transitionBase}
-            className="glass-panel"
+            className="glass-lg"
             style={{
               width: 700,
               flexShrink: 0,
@@ -665,7 +700,7 @@ export default function Dashboard() {
                 <Archive size={14} />
                 {selectedEmail.archived ? '恢复' : '归档'}
               </button>
-              <button className="accent-button" style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 20px', cursor: 'pointer', fontSize: 13 }}>
+              <button className="btn-primary" style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 20px', cursor: 'pointer', fontSize: 13 }}>
                 <Send size={14} />
                 回复
               </button>
@@ -677,13 +712,13 @@ export default function Dashboard() {
       {/* Settings Modal */}
       <AnimatePresence>
         {showSettings && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={transitionModal} onClick={() => setShowSettings(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 }}>
-            <motion.div initial={{ scale: 0.98, opacity: 0, y: 6 }} animate={{ scale: 1, opacity: 1, y: 0 }} exit={{ scale: 0.98, opacity: 0, y: 6 }} transition={transitionModal} onClick={ev => ev.stopPropagation()} style={{ width: 360, background: 'var(--surface-3)', borderRadius: 'var(--r-lg)', border: '1px solid var(--stroke-1)', boxShadow: 'var(--elev-3)', backdropFilter: 'blur(18px) saturate(120%)', overflow: 'hidden' }}>
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={transitionModal} onClick={() => setShowSettings(false)} className="modal-overlay">
+            <motion.div initial={{ scale: 0.98, opacity: 0, y: 6 }} animate={{ scale: 1, opacity: 1, y: 0 }} exit={{ scale: 0.98, opacity: 0, y: 6 }} transition={transitionModal} onClick={ev => ev.stopPropagation()} className="modal-card" style={{ width: 360, maxHeight: '85vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 24px', borderBottom: '1px solid var(--stroke-1)' }}>
                 <span style={{ fontWeight: 600, color: 'var(--text-1)', fontSize: 16 }}>设置</span>
                 <button onClick={() => setShowSettings(false)} style={{ background: 'none', border: 'none', color: 'var(--text-3)', cursor: 'pointer' }}><X size={18} /></button>
               </div>
-              <div style={{ padding: 24 }}>
+              <div style={{ padding: 24, overflowY: 'auto', flex: 1 }}>
                 <div style={{ marginBottom: 24 }}>
                   <div style={{ fontSize: 12, color: 'var(--text-2)', marginBottom: 12, fontWeight: 500 }}>主题模式</div>
                   <div style={{ display: 'flex', gap: 10, background: 'var(--bg-0)', padding: 4, borderRadius: 12, border: '1px solid var(--stroke-1)' }}>
@@ -773,8 +808,8 @@ export default function Dashboard() {
       {/* Compose Modal */}
       <AnimatePresence>
         {compose && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={transitionModal} onClick={() => setCompose(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 }}>
-            <motion.div initial={{ scale: 0.98, opacity: 0, y: 6 }} animate={{ scale: 1, opacity: 1, y: 0 }} exit={{ scale: 0.98, opacity: 0, y: 6 }} transition={transitionModal} onClick={ev => ev.stopPropagation()} style={{ width: 520, background: 'var(--surface-3)', borderRadius: 'var(--r-lg)', border: '1px solid var(--stroke-1)', boxShadow: 'var(--elev-3)', backdropFilter: 'blur(18px) saturate(120%)', overflow: 'hidden' }}>
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={transitionModal} onClick={() => setCompose(false)} className="modal-overlay">
+            <motion.div initial={{ scale: 0.98, opacity: 0, y: 6 }} animate={{ scale: 1, opacity: 1, y: 0 }} exit={{ scale: 0.98, opacity: 0, y: 6 }} transition={transitionModal} onClick={ev => ev.stopPropagation()} className="modal-card" style={{ width: 520, overflow: 'hidden' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 24px', borderBottom: '1px solid var(--stroke-1)' }}>
                 <span style={{ fontWeight: 600, color: 'var(--text-1)', fontSize: 16 }}>写邮件</span>
                 <button onClick={() => setCompose(false)} style={{ background: 'none', border: 'none', color: 'var(--text-3)', cursor: 'pointer' }}><X size={20} /></button>
@@ -791,10 +826,10 @@ export default function Dashboard() {
                     <svg width="10" height="6" viewBox="0 0 10 6" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M1 1L5 5L9 1" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
                   </div>
                 </div>
-                <input value={form.to} onChange={ev => setForm({ ...form, to: ev.target.value })} placeholder="收件人" style={{ width: '100%', padding: '12px', background: 'var(--surface-1)', border: '1px solid var(--stroke-1)', borderRadius: 10, color: 'var(--text-1)', fontSize: 14, outline: 'none' }} />
-                <input value={form.subject} onChange={ev => setForm({ ...form, subject: ev.target.value })} placeholder="主题" style={{ width: '100%', padding: '12px', background: 'var(--surface-1)', border: '1px solid var(--stroke-1)', borderRadius: 10, color: 'var(--text-1)', fontSize: 14, outline: 'none' }} />
-                <textarea value={form.content} onChange={ev => setForm({ ...form, content: ev.target.value })} placeholder="正文内容..." style={{ width: '100%', padding: '12px', background: 'var(--surface-1)', border: '1px solid var(--stroke-1)', borderRadius: 10, color: 'var(--text-1)', fontSize: 14, minHeight: 200, resize: 'none', outline: 'none' }} />
-                <button onClick={sendEmail} className="accent-button" style={{ width: '100%', padding: '12px', borderRadius: 10, fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>发送邮件</button>
+                <input value={form.to} onChange={ev => setForm({ ...form, to: ev.target.value })} placeholder="收件人" className="input-glass" />
+                <input value={form.subject} onChange={ev => setForm({ ...form, subject: ev.target.value })} placeholder="主题" className="input-glass" />
+                <textarea value={form.content} onChange={ev => setForm({ ...form, content: ev.target.value })} placeholder="正文内容..." className="textarea-glass" />
+                <button onClick={sendEmail} className="btn-primary" style={{ width: '100%' }}>发送邮件</button>
               </div>
             </motion.div>
           </motion.div>

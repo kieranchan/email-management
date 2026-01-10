@@ -141,5 +141,61 @@ sqlite3 /app/dev.db "UPDATE Account SET host = 'mailserver' WHERE host = 'localh
 
 1. **本地开发** 使用 `host: localhost`
 2. **生产环境** 使用 `host: mailserver` (Docker 网络名)
-3. 每次重新部署代码后，数据库不会被覆盖（volume 挂载）
+3. 每次重新部署代码后,数据库不会被覆盖（volume 挂载）
 4. 修改 `nginx.conf` 后需要 `docker compose restart nginx`
+
+---
+
+## 本地开发：SSH 隧道配置
+
+### 快速配置（推荐）
+
+在 `~/.ssh/config` (Windows: `C:\Users\86130\.ssh\config`) 添加：
+
+```
+# Nexus Mail 邮件服务端口转发
+Host email-tunnel
+    HostName 66.154.127.152
+    User root
+    LocalForward 993 localhost:993
+    LocalForward 143 localhost:143
+    LocalForward 587 localhost:587
+    ServerAliveInterval 60
+    ServerAliveCountMax 3
+    ExitOnForwardFailure yes
+```
+
+### 使用方法
+
+```bash
+# 启动隧道
+ssh -N email-tunnel
+
+# 本地应用配置
+IMAP_HOST=localhost
+IMAP_PORT=993
+SMTP_HOST=localhost
+SMTP_PORT=587
+```
+
+### 故障排查
+
+**问题：`accept: Too many open files`**
+
+原因：服务器上存在大量僵尸 SSH 连接
+
+解决：在服务器上清理 unknown 连接
+
+```bash
+# 查看当前 SSH 连接
+ps aux | grep sshd
+
+# 清理 unknown 状态连接
+pkill -f "sshd: unknown"
+```
+
+**配置说明：**
+
+- `ServerAliveInterval 60` - 每60秒心跳，保持连接活跃
+- `ServerAliveCountMax 3` - 3次心跳失败后自动断开
+- `ExitOnForwardFailure yes` - 端口转发失败时立即退出，避免残留
