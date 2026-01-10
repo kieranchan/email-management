@@ -67,11 +67,65 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [compose, setCompose] = useState(false);
+  const [draftId, setDraftId] = useState<string | null>(null);
+  const [saveStatus, setSaveStatus] = useState<'saved' | 'saving' | 'error' | null>(null);
   const [form, setForm] = useState({ from: '', to: '', subject: '', content: '' });
   const [selectedEmail, setSelectedEmail] = useState<Email | null>(null);
   const [sending, setSending] = useState(false);
   const [sendError, setSendError] = useState<string | null>(null);
   const [showToast, setShowToast] = useState(false);
+
+  // Auto-save Debounce Effect
+  useEffect(() => {
+    if (!compose) return;
+
+    // Don't save if empty or no sender
+    if ((!form.to && !form.subject && !form.content) || !form.from) return;
+
+    const timer = setTimeout(async () => {
+      setSaveStatus('saving');
+      try {
+        const res = await fetch('/api/drafts/', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            id: draftId,
+            accountId: form.from,
+            to: form.to,
+            subject: form.subject,
+            htmlBody: form.content,
+            textBody: form.content // Simple fallback
+          })
+        });
+
+        if (res.ok) {
+          const data = await res.json();
+          if (data.id) setDraftId(data.id);
+          setSaveStatus('saved');
+          // Refresh list if in drafts folder to show new draft immediately
+          if (activeFolder === 'drafts') {
+            loadEmails();
+          }
+        } else {
+          setSaveStatus('error');
+        }
+      } catch (err) {
+        console.error('Auto-save failed', err);
+        setSaveStatus('error');
+      }
+    }, 2000); // 2s debounce
+
+    return () => clearTimeout(timer);
+  }, [form, compose, draftId]);
+
+  // Reset state when closing
+  useEffect(() => {
+    if (!compose) {
+      setDraftId(null);
+      setSaveStatus(null);
+      setSendError(null);
+    }
+  }, [compose]);
 
   // Folder Navigation
   type FolderType = 'inbox' | 'sent' | 'drafts' | 'archive';
@@ -136,7 +190,30 @@ export default function Dashboard() {
 
   // Load email details
   async function selectEmail(email: Email) {
+    // If it's a draft, open compose instead of details
+    if (activeFolder === 'drafts') {
+      try {
+        // Fetch full draft details
+        const r = await fetch(`/api/drafts/${email.id}/`);
+        if (r.ok) {
+          const draft = await r.json();
+          setForm({
+            from: draft.accountId,
+            to: draft.to || '',
+            subject: draft.subject || '',
+            content: draft.htmlBody || draft.textBody || ''
+          });
+          setDraftId(draft.id);
+          setCompose(true);
+        }
+      } catch (e) {
+        console.error("Failed to load draft", e);
+      }
+      return;
+    }
+
     setSelectedEmail(email);
+
     // If content is missing, fetch details
     if (!email.content && !email.isDraft) {
       try {
@@ -365,6 +442,11 @@ export default function Dashboard() {
 
       if (r.ok) {
         setCompose(false);
+        // Cleanup draft if exists
+        if (draftId) {
+          await fetch(`/api/drafts/${draftId}/`, { method: 'DELETE' });
+        }
+        await loadEmails(); // Refresh list to remove draft or show sent email
         setForm({ from: '', to: '', subject: '', content: '' });
         // Show success toast
         setShowToast(true);
@@ -377,6 +459,27 @@ export default function Dashboard() {
       setSendError('网络错误，无法发送');
     }
     setSending(false);
+  }
+
+  async function discardDraft() {
+    if (!confirm('确定要丢弃草稿吗？此操作无法撤销。')) return;
+
+    if (draftId) {
+      try {
+        await fetch(`/api/drafts/${draftId}/`, { method: 'DELETE' });
+      } catch (e) {
+        console.error('Failed to delete draft', e);
+      }
+    }
+
+    setCompose(false);
+    setForm({ from: '', to: '', subject: '', content: '' });
+    setDraftId(null);
+    setSaveStatus(null);
+
+    if (activeFolder === 'drafts') {
+      loadEmails();
+    }
   }
 
   // Archive/Restore email
@@ -913,6 +1016,11 @@ export default function Dashboard() {
             <motion.div initial={{ scale: 0.98, opacity: 0, y: 6 }} animate={{ scale: 1, opacity: 1, y: 0 }} exit={{ scale: 0.98, opacity: 0, y: 6 }} transition={transitionModal} onClick={ev => ev.stopPropagation()} className="modal-card" style={{ width: 520, overflow: 'hidden' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 24px', borderBottom: '1px solid var(--stroke-1)' }}>
                 <span style={{ fontWeight: 600, color: 'var(--text-1)', fontSize: 16 }}>写邮件</span>
+                <div className="text-sm font-medium flex items-center gap-2" style={{ fontSize: 12 }}>
+                  {saveStatus === 'saving' && <span className="animate-pulse" style={{ color: 'var(--text-3)' }}>保存中...</span>}
+                  {saveStatus === 'saved' && <span style={{ color: 'var(--accent)' }}>已保存</span>}
+                  {saveStatus === 'error' && <span style={{ color: '#ef4444' }}>保存失败</span>}
+                </div>
                 <button onClick={() => setCompose(false)} style={{ background: 'none', border: 'none', color: 'var(--text-3)', cursor: 'pointer' }}><X size={20} /></button>
               </div>
               <div style={{ padding: 24, display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -938,19 +1046,28 @@ export default function Dashboard() {
                   </div>
                 )}
 
-                <button
-                  onClick={sendEmail}
-                  disabled={sending}
-                  className="btn-primary"
-                  style={{ width: '100%', justifyContent: 'center', cursor: sending ? 'not-allowed' : 'pointer', opacity: sending ? 0.8 : 1 }}
-                >
-                  {sending ? (
-                    <>
-                      <RefreshCw size={14} className="animate-spin" />
-                      发送中...
-                    </>
-                  ) : '发送邮件'}
-                </button>
+                <div style={{ display: 'flex', gap: 12 }}>
+                  <button
+                    onClick={discardDraft}
+                    className="btn-secondary"
+                    style={{ flex: 1, justifyContent: 'center', color: '#ef4444', borderColor: '#ef4444' }}
+                  >
+                    丢弃
+                  </button>
+                  <button
+                    onClick={sendEmail}
+                    disabled={sending}
+                    className="btn-primary"
+                    style={{ flex: 2, justifyContent: 'center', cursor: sending ? 'not-allowed' : 'pointer', opacity: sending ? 0.8 : 1 }}
+                  >
+                    {sending ? (
+                      <>
+                        <RefreshCw size={14} className="animate-spin" />
+                        发送中...
+                      </>
+                    ) : '发送邮件'}
+                  </button>
+                </div>
               </div>
             </motion.div>
           </motion.div>

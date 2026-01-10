@@ -330,4 +330,105 @@ Modal card 的样式设置了 `overflow: 'hidden'`，但内容容器没有设置
 
 ---
 
-*最后更新: 2026-01-10*
+*最后更新: 2026-01-11*
+
+---
+
+## 🐛 Bug #8: 草稿无法恢复编辑 (Draft Resume Failure)
+
+### 问题描述
+
+点击“草稿箱”中的邮件时，系统错误地尝试打开详情预览页（往往加载失败或显示空白），而不是弹出“写邮件”模态框让用户继续编辑。且控制台报错或无反应。
+
+### 问题原因
+
+1. **逻辑顺序错误**：`selectEmail` 函数中，`setSelectedEmail`（打开详情页逻辑）在检查是否为草稿之前就执行了。
+2. **拼写错误**：在草稿检查逻辑中，调用了不存在的 `setComposeOpen(true)`，正确的方法名应该是 `setCompose(true)`。
+
+```tsx
+// ❌ 错误代码
+async function selectEmail(email: Email) {
+  setSelectedEmail(email); // 抢跑：先打开了详情页
+  if (activeFolder === 'drafts') {
+     // ...
+     setComposeOpen(true); // 报错：setComposeOpen is not defined
+  }
+}
+```
+
+### 解决方案
+
+1. 将 `setSelectedEmail(email)` 移至草稿检查逻辑之后。
+2. 修正状态 Setting 方法名为 `setCompose(true)`。
+
+### 相关文件
+
+- `app/page.tsx`
+
+---
+
+## 🐛 Bug #9: 发送失败报错 ReferenceError (500 Internal Server Error)
+
+### 问题描述
+
+当发送邮件失败（如 SMTP 错误）时，API 返回 500 错误，且服务端控制台打印 `ReferenceError: accountId is not defined`，导致原本预期的“更新邮件状态为 FAILED”逻辑失效，甚至导致服务端崩溃。
+
+### 问题原因
+
+变量作用域问题。`accountId` 和 `providerKey` 是在 `try` 块内部定义的，但在 `catch` 块中尝试访问它们以更新数据库状态。
+
+```typescript
+// ❌ 错误代码
+export async function POST(req) {
+  try {
+    const { accountId } = await req.json(); // 作用域仅限于 try 块
+    // ...
+  } catch (e) {
+    if (accountId) { ... } // 报错：accountId undefined
+  }
+}
+```
+
+### 解决方案
+
+将 `accountId` 和 `providerKey` 的声明提升到 `try/catch` 外部。
+
+```typescript
+// ✅ 修复代码
+export async function POST(req) {
+  let accountId, providerKey; // 提升作用域
+  try {
+     const body = await req.json();
+     accountId = body.accountId;
+     // ...
+  } catch (e) {
+     if (accountId) { ... } // 正常访问
+  }
+}
+```
+
+### 相关文件
+
+- `app/api/send/route.ts`
+
+---
+
+## 🐛 Bug #10: 草稿自动保存/发送后列表不刷新
+
+### 问题描述
+
+1. 在草稿箱页面撰写邮件时，自动保存触发后，列表中的草稿预览（如主题、时间）没有更新。
+2. 发送邮件成功后，虽然“写邮件”窗口关闭了，但草稿箱列表中该草稿依然存在（实际上已被删除），点击会报错或没反应，需要手动刷新页面。
+
+### 问题原因
+
+前端在执行 Auto-save 和 Send 成功的回调逻辑中，漏掉了重新拉取邮件列表（`loadEmails`）的操作。
+
+### 解决方案
+
+1. **Auto-save**: 在 `saveDraft` 成功后，如果当前是在 `drafts` 视图，调用 `loadEmails()`。
+2. **Send**: 在发送成功并 `DELETE` 草稿后，调用 `loadEmails()`。
+
+### 相关文件
+
+- `app/page.tsx`

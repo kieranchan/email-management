@@ -4,9 +4,21 @@ import nodemailer from 'nodemailer';
 import { randomUUID } from 'crypto';
 
 export async function POST(request: Request) {
+    let accountId: string | undefined;
+    let providerKey: string | undefined;
+
     try {
         const body = await request.json();
-        const { accountId, to, subject, content } = body;
+        accountId = body.accountId;
+        const { to, subject, content } = body;
+
+        if (!accountId) {
+            return NextResponse.json({ error: 'accountId is required' }, { status: 400 });
+        }
+        if (!to || !String(to).trim()) {
+            return NextResponse.json({ error: 'recipient is required' }, { status: 400 });
+        }
+        const toValue = String(to).trim();
 
         const account = await prisma.account.findUnique({
             where: { id: accountId },
@@ -30,7 +42,7 @@ export async function POST(request: Request) {
         });
 
         // 先写入本地 Sent 记录，标记为 PENDING
-        const providerKey = `local:${randomUUID()}`;
+        providerKey = `local:${randomUUID()}`;
         const htmlContent = content ? content.replace(/\n/g, '<br>') : '';
 
         const email = await prisma.email.create({
@@ -41,7 +53,7 @@ export async function POST(request: Request) {
                 folder: 'SENT',
                 subject,
                 from: account.email,
-                to,
+                to: toValue,
                 date: new Date(),
                 flags: JSON.stringify(['\\Seen']),
                 content: htmlContent,
@@ -53,7 +65,7 @@ export async function POST(request: Request) {
         // 发送 SMTP
         const info = await transporter.sendMail({
             from: `"${account.name || account.email}" <${account.email}>`,
-            to,
+            to: toValue,
             subject,
             text: content,
             html: htmlContent,
@@ -74,7 +86,7 @@ export async function POST(request: Request) {
             try {
                 await prisma.email.update({
                     where: { accountId_providerKey: { accountId, providerKey } },
-                    data: { localStatus: 'FAILED' }
+                    data: { localStatus: 'ERROR' }
                 });
             } catch (ignore) { /* If record creation failed, this update will fail too, just ignore */ }
         }

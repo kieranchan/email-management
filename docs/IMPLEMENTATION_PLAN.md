@@ -11,7 +11,7 @@
 | P2 | 数据模型加固 | ✅ 完成 | 2026-01-10 |
 | P2 | API 补齐 | ✅ 完成 | 2026-01-10 |
 | P3 | All Accounts 逻辑 | ✅ 完成 | 2026-01-10 |
-| P4 | 草稿与 Compose | ⬜ 待开始 | - |
+| P4 | 草稿与 Compose | ✅ 完成 | 2026-01-11 |
 | P5 | QA 检查 | ⬜ 待开始 | - |
 | P6 | 自动同步与增强 | ⬜ 规划中 | - |
 
@@ -162,6 +162,23 @@ model Email {
 
 ---
 
+## P4: 草稿与 Compose (进行中)
+
+### 1. API 扩展 (Drafts)
+
+- [x] **`POST /api/drafts`**: 创建/更新草稿 (Upsert Logic)。
+- [x] **`PUT /api/drafts`**: 已合并至 POST 接口，支持 Upsert。
+- [x] **`DELETE /api/drafts`**: 删除草稿。
+
+### 2. Frontend Logic (Compose)
+
+- [x] **Auto-save**: 使用 `useDebounce` 监听表单变化，自动调用保存 API。
+- [x] **Draft Resume**: 在草稿箱点击邮件时，不进入详情页，而是打开 Compose Modal 并回显数据。
+- [x] **Status Indicator**: 在 Modal 标题栏显示 "已保存" 或 "保存中..."。
+- [x] **Cleanup**: 发送邮件成功后，如果该邮件是从草稿恢复的，需调用 DELETE 接口清理。
+
+---
+
 ## P6: 自动同步与增强 (Roundcube Parity)
 
 ### 目标
@@ -190,4 +207,6 @@ model Email {
 | 2026-01-10 | P0 | 完成 P0 验收：全局样式集中到 globals.css，移除 layout 内联样式；修复 MessageRow hover/未读逻辑与 API 未读标志解析 |
 | 2026-01-10 | 优化 | 全局 API 请求优化：为所有 fetch 请求添加末尾斜杠（/），解决 `trailingSlash: true` 配置下的 308 重定向问题，提升请求效率 |
 | 2026-01-10 | 修复 | Bug #7 发送逻辑修复：发送失败时将本地临时邮件状态更新为 FAILED，防止长期卡在 PENDING 状态；执行脚本清理了历史脏数据 |
-| 2026-01-10 | - | 创建实施计划文档 |
+| 2026-01-11 | P4 | 草稿与 Compose 完成（前端自动保存/恢复/状态指示，发送后清理草稿；后端草稿 GET/DELETE/POST upsert 打通）。 |
+| 2026-01-11 | 修复 | P4 细节打磨：修复了草稿详情页覆盖编辑框的问题 (Resumption Logic)；增加了丢弃草稿功能；修复了发送失败时 ReferenceError 导致的 500 错误；优化了自动保存和发送后的列表刷新逻辑 |
+| 2026-01-11 | 修复 | 发送接口修复：校验收件人并沿用 providerKey，本地写入 PENDING，成功转 NORMAL，失败标记 ERROR，避免空收件人请求与挂起。|
