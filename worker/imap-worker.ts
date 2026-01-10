@@ -6,7 +6,7 @@
  */
 
 import { ImapFlow } from 'imapflow';
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient, type Account } from '@prisma/client';
 import { WebSocketServer, WebSocket } from 'ws';
 
 const prisma = new PrismaClient();
@@ -59,11 +59,11 @@ async function parseEmailContent(source: Buffer): Promise<string> {
 // Manage IMAP connection for a single account
 class AccountWatcher {
     private client: ImapFlow | null = null;
-    private account: any;
+    private account: Account;
     private running = false;
     private reconnectTimeout: NodeJS.Timeout | null = null;
 
-    constructor(account: any) {
+    constructor(account: Account) {
         this.account = account;
     }
 
@@ -124,8 +124,9 @@ class AccountWatcher {
 
             // Start IDLE loop
             await this.idleLoop();
-        } catch (err: any) {
-            console.error(`[IMAP] Failed to connect ${this.account.email}:`, err.message);
+        } catch (err: unknown) {
+            const message = err instanceof Error ? err.message : String(err);
+            console.error(`[IMAP] Failed to connect ${this.account.email}:`, message);
             this.scheduleReconnect();
         }
     }
@@ -164,13 +165,14 @@ class AccountWatcher {
                             await this.fetchNewEmails(lastExists + 1, currentExists);
                             lastExists = currentExists;
                         }
-                    } catch (err: any) { }
+                    } catch { }
                 }
             } finally {
                 lock.release();
             }
-        } catch (err: any) {
-            console.error(`[IMAP] IDLE error for ${this.account.email}:`, err.message);
+        } catch (err: unknown) {
+            const message = err instanceof Error ? err.message : String(err);
+            console.error(`[IMAP] IDLE error for ${this.account.email}:`, message);
             this.scheduleReconnect();
         }
     }
@@ -234,8 +236,9 @@ class AccountWatcher {
                     }
                 });
             }
-        } catch (err: any) {
-            console.error(`[IMAP] Failed to fetch new emails:`, err.message);
+        } catch (err: unknown) {
+            const message = err instanceof Error ? err.message : String(err);
+            console.error(`[IMAP] Failed to fetch new emails:`, message);
         }
     }
 }

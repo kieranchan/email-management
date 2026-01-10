@@ -3,6 +3,12 @@ import fs from 'fs/promises';
 import path from 'path';
 import prisma from '@/app/lib/prisma';
 
+type Tag = {
+    id: string;
+    label: string;
+    color: string;
+};
+
 const DATA_FILE = path.join(process.cwd(), 'data', 'tags.json');
 
 // Helper to ensure data file exists
@@ -43,10 +49,10 @@ export async function POST(request: Request) {
         }
 
         const dataStr = await fs.readFile(DATA_FILE, 'utf-8');
-        const tags = JSON.parse(dataStr);
+        const tags = JSON.parse(dataStr) as Tag[];
 
         // Duplicate Check
-        if (tags.some((t: any) => t.label.toLowerCase() === label.trim().toLowerCase())) {
+        if (tags.some((t) => t.label.toLowerCase() === label.trim().toLowerCase())) {
             return NextResponse.json({ error: '该标签名称已存在' }, { status: 400 });
         }
 
@@ -76,8 +82,8 @@ export async function DELETE(request: Request) {
         }
 
         const dataStr = await fs.readFile(DATA_FILE, 'utf-8');
-        let tags = JSON.parse(dataStr);
-        const tagToDelete = tags.find((t: any) => t.id === id);
+        let tags = JSON.parse(dataStr) as Tag[];
+        const tagToDelete = tags.find((t) => t.id === id);
 
         if (!tagToDelete) {
             return NextResponse.json({ error: 'Tag not found' }, { status: 404 });
@@ -96,7 +102,7 @@ export async function DELETE(request: Request) {
         }
 
         // Safe to delete
-        tags = tags.filter((t: any) => t.id !== id);
+        tags = tags.filter((t) => t.id !== id);
         await fs.writeFile(DATA_FILE, JSON.stringify(tags, null, 2));
 
         return NextResponse.json({ success: true });

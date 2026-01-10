@@ -3,10 +3,11 @@ import prisma from '@/app/lib/prisma';
 import { ImapFlow } from 'imapflow';
 import * as quotedPrintable from 'quoted-printable';
 import * as utf8 from 'utf8';
+import type { Account } from '@prisma/client';
 
 export const dynamic = 'force-dynamic';
 
-async function syncAccount(account: any) {
+async function syncAccount(account: Account) {
     // 使用环境变量覆盖 host (生产环境使用 mailserver)
     const imapHost = process.env.IMAP_HOST || account.host;
 

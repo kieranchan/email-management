@@ -55,3 +55,8 @@ next-env.d.ts
 
 # logs
 *.log
+
+# private files (sensitive account data)
+*.local.md
+*.local.json
+*.backup

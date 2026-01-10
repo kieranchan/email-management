@@ -44,10 +44,16 @@ npx prisma db push
 ### 4. 启动开发服务器
 
 ```bash
-npm run dev
+npm run dev:all
 ```
 
 访问 <http://localhost:3000>
+
+## 开发文档
+
+- [开发规则](./docs/RULES.md)
+- [开发流程](./docs/WORKFLOWS.md)
+- [Bug 记录](./docs/BUGS_AND_SOLUTIONS.md)
 
 ## Docker 部署
 

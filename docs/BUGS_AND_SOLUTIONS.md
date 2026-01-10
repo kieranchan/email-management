@@ -100,14 +100,12 @@
 
 ### 解决方案
 
-**开发环境**：暂时禁用 `basePath`
+**开发环境（推荐）**：开发模式默认不启用 `basePath`（避免 `/api/*` 404），无需手动注释。
 
 ```ts
-// next.config.ts
-const nextConfig: NextConfig = {
-  output: "standalone",
-  // basePath: "/admin", // 开发时注释掉
-};
+// next.config.ts（关键逻辑）
+const isProd = process.env.NODE_ENV === "production";
+const basePath = process.env.NEXT_BASE_PATH || (isProd ? "/admin" : undefined);
 ```
 
 **生产环境**：确保 Nginx 正确代理
