@@ -2,6 +2,7 @@
 
 import { motion } from 'framer-motion';
 import { X, RefreshCw } from 'lucide-react';
+import SenderDropdown from './SenderDropdown';
 
 interface Account {
     id: string;
@@ -46,10 +47,10 @@ export default function ComposeModal({
 }: ComposeModalProps) {
     return (
         <motion.div
-            initial={{ opacity: 0 }}
+            initial={{ opacity: 1 }}
             animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={transitionModal}
+            exit={{ opacity: 1 }}
+            transition={{ duration: 0 }} // Bug #19: instant in/out, no animation
             onClick={onClose}
             className="modal-overlay"
         >
@@ -76,21 +77,12 @@ export default function ComposeModal({
                 {/* Form Content */}
                 <div style={{ padding: 24, display: 'flex', flexDirection: 'column', gap: 16 }}>
                     {/* From Select */}
-                    <div style={{ position: 'relative' }}>
-                        <select
-                            value={form.from}
-                            onChange={(ev) => setForm({ ...form, from: ev.target.value })}
-                            style={{ width: '100%', padding: '12px', paddingRight: 32, background: 'var(--surface-1)', border: '1px solid var(--stroke-1)', borderRadius: 10, color: 'var(--text-1)', fontSize: 14, outline: 'none', appearance: 'none', cursor: 'pointer' }}
-                        >
-                            <option value="" style={{ background: 'var(--bg-2)', color: 'var(--text-1)' }}>选择发件人...</option>
-                            {accounts.map((a) => (
-                                <option key={a.id} value={a.id} style={{ background: 'var(--bg-2)', color: 'var(--text-1)' }}>{a.name} ({a.email})</option>
-                            ))}
-                        </select>
-                        <div style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', color: 'var(--text-3)' }}>
-                            <svg width="10" height="6" viewBox="0 0 10 6" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M1 1L5 5L9 1" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
-                        </div>
-                    </div>
+                    {/* From Dropdown */}
+                    <SenderDropdown
+                        accounts={accounts}
+                        value={form.from}
+                        onChange={(accountId) => setForm({ ...form, from: accountId })}
+                    />
 
                     <input
                         value={form.to}

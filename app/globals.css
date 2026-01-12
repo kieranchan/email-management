@@ -1398,8 +1398,221 @@ body.noise::before {
         display: none !important;
     }
 
-    /* Main area takes full width */
+    /* Main area takes full width and adjusts for bottom tab */
     .main-area {
         width: 100%;
+        height: calc(var(--app-h) - 56px - env(safe-area-inset-bottom, 0px));
+        padding-bottom: 0;
+    }
+
+    /* TopBar mobile adjustments */
+    .topbar {
+        padding: 0 12px;
+    }
+}
+
+/* ============================================
+   M3: Mobile Drawer + Bottom Tab
+   ============================================ */
+
+/* Drawer Backdrop */
+.drawer-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 999;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 180ms var(--ease-out), visibility 180ms var(--ease-out);
+    -webkit-backdrop-filter: blur(4px);
+    backdrop-filter: blur(4px);
+}
+
+.drawer-backdrop.active {
+    opacity: 1;
+    visibility: visible;
+}
+
+/* Drawer */
+.drawer {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: min(86vw, 360px);
+    height: 100%;
+    z-index: 1000;
+    transform: translateX(-105%);
+    transition: transform 180ms var(--ease-out);
+    background: var(--bg-1);
+    display: flex;
+    flex-direction: column;
+    box-shadow: var(--elev-3);
+}
+
+.drawer.open {
+    transform: translateX(0);
+}
+
+.drawer-header {
+    height: 64px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 20px;
+    border-bottom: 1px solid var(--stroke-1);
+    flex-shrink: 0;
+}
+
+.drawer-content {
+    flex: 1;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+}
+
+/* Bottom Tab */
+.bottom-tab {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: calc(56px + env(safe-area-inset-bottom, 0px));
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+    display: flex;
+    align-items: center;
+    justify-content: space-around;
+    z-index: 100;
+    background: var(--bg-1);
+    border-top: 1px solid var(--stroke-1);
+    -webkit-backdrop-filter: blur(16px) saturate(120%);
+    backdrop-filter: blur(16px) saturate(120%);
+}
+
+.bottom-tab-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    padding: 6px 12px;
+    border-radius: 8px;
+    color: var(--text-3);
+    font-size: 10px;
+    font-weight: 500;
+    transition: color 150ms var(--ease-out), background 150ms var(--ease-out);
+    cursor: pointer;
+    border: none;
+    background: transparent;
+    min-width: 56px;
+}
+
+.bottom-tab-item:hover {
+    background: var(--surface-1);
+}
+
+.bottom-tab-item.active {
+    color: var(--accent-1);
+}
+
+.bottom-tab-item svg {
+    width: 22px;
+    height: 22px;
+}
+
+/* FAB placeholder space in bottom tab */
+.bottom-tab-fab-space {
+    width: 64px;
+}
+
+/* FAB (Floating Action Button) */
+.fab {
+    position: fixed;
+    bottom: calc(28px + env(safe-area-inset-bottom, 0px));
+    left: 50%;
+    transform: translateX(-50%);
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    z-index: 101;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, var(--accent-1), var(--accent-2));
+    color: #fff;
+    border: none;
+    cursor: pointer;
+    box-shadow: 0 4px 16px var(--accent-glow-1);
+    transition: transform 150ms var(--ease-out), box-shadow 150ms var(--ease-out);
+}
+
+.fab:hover {
+    transform: translateX(-50%) scale(1.05);
+    box-shadow: 0 6px 24px var(--accent-glow-1);
+}
+
+.fab:active {
+    transform: translateX(-50%) scale(0.95);
+}
+
+.fab svg {
+    width: 24px;
+    height: 24px;
+}
+
+/* Mobile menu button in TopBar */
+.mobile-menu-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
+    border: none;
+    background: transparent;
+    color: var(--text-2);
+    cursor: pointer;
+    transition: background 150ms var(--ease-out);
+    margin-right: 8px;
+}
+
+.mobile-menu-btn:hover {
+    background: var(--surface-1);
+}
+
+/* Compose Modal - Sender Dropdown (Custom Component for Bug #11) */
+.sender-dropdown-trigger:hover {
+    background: var(--surface-2) !important;
+    border-color: var(--stroke-2) !important;
+}
+
+/* Focus style for keyboard accessibility (Bug #14) */
+.sender-dropdown-trigger:focus {
+    outline: 2px solid var(--accent-1);
+    outline-offset: 2px;
+}
+
+.sender-dropdown-option:hover,
+.sender-dropdown-option.focused {
+    background: var(--surface-2) !important;
+}
+
+/* Dropdown appear animation */
+@keyframes dropdown-appear {
+    from {
+        opacity: 0;
+        transform: translateY(-4px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Mobile specific adjustments */
+@media (max-width: 768px) {
+    .sender-dropdown-list {
+        /* Ensure dropdown doesn't overflow screen */
+        max-height: min(40vh, 300px) !important;
     }
 }

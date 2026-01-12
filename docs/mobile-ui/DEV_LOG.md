@@ -638,6 +638,71 @@ export const viewport: Viewport = {
 
 ---
 
+---
+
+## M3: Sidebar Drawer + Bottom Tab ✅
+
+### 2026-01-13 00:00 - Mobile Navigation Components
+
+**目标**：移动端将固定 Sidebar 改为抽屉组件，添加 Bottom Tab 导航和 FAB 写邮件按钮
+
+#### 新增文件
+
+| 文件 | 说明 |
+|------|------|
+| `app/hooks/useMediaQuery.ts` | 媒体查询 Hook，使用 `useSyncExternalStore` 实现响应式检测 |
+| `app/components/MobileDrawer.tsx` | 移动端侧滑抽屉组件，包含 backdrop 和滑入动画 |
+| `app/components/BottomTab.tsx` | 底部导航栏 + FAB 悬浮按钮 |
+
+#### 修改文件
+
+**文件**：`app/globals.css`（末尾添加）
+
+**新增内容**：
+
+- `.drawer`、`.drawer-backdrop`、`.drawer-header`、`.drawer-content` - 抽屉样式
+- `.bottom-tab`、`.bottom-tab-item`、`.fab` - 底部导航和 FAB 样式
+- `.mobile-menu-btn` - TopBar 菜单按钮样式
+- 移动端 `.main-area` 高度调整：`calc(var(--app-h) - 56px - env(safe-area-inset-bottom))`
+
+**文件**：`app/components/TopBar.tsx`
+
+| 变更 | 说明 |
+|------|------|
+| 新增 props | `isMobile?: boolean`, `onMenuClick?: () => void` |
+| 新增功能 | 移动端显示 ☰ 菜单按钮 |
+| 条件渲染 | 移动端隐藏"写邮件"按钮（使用 FAB 替代） |
+
+**文件**：`app/page.tsx`
+
+| 变更 | 说明 |
+|------|------|
+| 新增 imports | `MobileDrawer`, `BottomTab`, `useIsMobile` |
+| 新增状态 | `isMobile`, `drawerOpen` |
+| 条件渲染 | 桌面端显示 Sidebar，移动端显示 Drawer + BottomTab |
+| Drawer 交互 | 选择账号/文件夹后自动关闭 Drawer |
+
+#### 技术亮点
+
+1. **useSyncExternalStore**：使用 React 18 推荐的外部状态订阅方式，避免 setState-in-effect lint 错误
+2. **体验优化**：Drawer 打开时禁用 body 滚动，关闭时恢复
+3. **安全区适配**：BottomTab 和 FAB 使用 `env(safe-area-inset-bottom)` 适配 iOS 刘海屏
+4. **动画一致性**：使用 180ms ease-out 过渡，与设计系统保持一致
+
+#### 验证结果
+
+| 检查项 | 结果 |
+|--------|------|
+| `npm run lint` | ✅ 通过（仅 1 个已知 warning） |
+| 桌面端布局 (≥768px) | ✅ Sidebar 正常显示 |
+| 移动端布局 (<768px) | ✅ BottomTab + FAB 显示 |
+| 点击 ☰ 打开 Drawer | ✅ 正常 |
+| Drawer 账号/文件夹切换 | ✅ 正常，选择后自动关闭 |
+| FAB 打开写邮件 | ✅ 正常 |
+| BottomTab 文件夹切换 | ✅ 正常 |
+
+---
+
 ## 决策记录
 
 ### 2026-01-12 21:49 - M0 验收标准调整
@@ -659,3 +724,47 @@ export const viewport: Viewport = {
 **决策**：继续禁用缩放。
 
 **理由**：产品设计不需要用户缩放，保持 UI 一致性优先。
+
+### 2026-01-13 01:42 - Feature #15: 全局 Escape 键层级退出
+
+**需求**：用户希望按 Escape 键能逐层关闭界面，直到回到主页面。
+
+**实现**：在 `page.tsx` 添加全局 keydown 事件监听：
+
+```tsx
+const hasSelectedEmail = !!selectedEmail;
+useEffect(() => {
+  const handleGlobalEscape = (event: KeyboardEvent) => {
+    if (event.key !== 'Escape') return;
+    if (hasSelectedEmail) setSelectedEmail(null);
+    else if (compose) setCompose(false);
+    else if (showSettings) setShowSettings(false);
+    else if (drawerOpen) setDrawerOpen(false);
+  };
+  document.addEventListener('keydown', handleGlobalEscape);
+  return () => document.removeEventListener('keydown', handleGlobalEscape);
+}, [hasSelectedEmail, compose, showSettings, drawerOpen]);
+```
+
+**优先级顺序**：邮件详情 → 写邮件 → 设置 → 抽屉
+
+**相关文件**：`app/page.tsx` (第 171-191 行)
+
+### 2026-01-13 01:42 - Feature #16: 移除模态框背景渐变动画
+
+**需求**：用户反馈模态框背景从透明渐变到半透明不好看，希望立即显示。
+
+**实现**：修改 ComposeModal 和 SettingsModal 的 Framer Motion 初始状态：
+
+```tsx
+// Before
+initial={{ opacity: 0 }}
+
+// After
+initial={{ opacity: 1 }}
+```
+
+**相关文件**：
+
+- `app/components/ComposeModal.tsx` (第 50 行)
+- `app/components/SettingsModal.tsx` (第 59 行)

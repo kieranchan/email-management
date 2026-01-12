@@ -10,7 +10,7 @@
 | 状态 | 数量 |
 |------|------|
 | 🔴 待修复 | 0 |
-| 🟢 已修复 | 7 |
+| 🟢 已修复 | 19 |
 | 🟡 进行中 | 0 |
 
 ---
@@ -21,7 +21,7 @@
 
 ---
 
-## 🟡 进行中
+## 进行中
 
 *暂无*
 
@@ -248,6 +248,361 @@ M2 添加的移动端媒体查询 `.sidebar { display: none }` 不生效，移�
 **相关文件**：`app/globals.css`
 
 **状态**：🟢 已修复 (2026-01-12 23:50)
+
+---
+
+### Bug #8: Drawer 中文件夹导航与 BottomTab 重复
+
+**发现日期**：2026-01-13
+**来源**：用户测试反馈
+
+**问题描述**：
+移动端 Drawer（账号切换抽屉）和 BottomTab 都显示了文件夹导航（收件箱/已发送/草稿箱/归档），功能重复，界面混乱。
+
+**设计意图**：
+
+- **Drawer**: 仅用于切换账号和访问设置
+- **BottomTab**: 仅用于切换文件夹（收件箱/已发送/草稿箱/归档）
+
+**影响范围**：
+
+- 移动端用户体验下降
+- 界面功能重复
+
+**解决方案**：
+
+1. 隐藏 Drawer 打开时的 BottomTab（避免视觉冲突）
+2. **从 Drawer 中移除 SidebarFolders 组件**（避免功能重复）
+
+```tsx
+// Before: Drawer 包含账号列表 + 文件夹导航
+<MobileDrawer>
+  <SidebarAccounts />
+  <SidebarFolders />  // ❌ 删除这个
+  <Settings />
+</MobileDrawer>
+
+// After: Drawer 仅包含账号列表 + 设置
+<MobileDrawer>
+  <SidebarAccounts />
+  <Settings />
+</MobileDrawer>
+```
+
+**相关文件**：
+
+- `app/page.tsx` (第 979 行 - BottomTab 条件渲染)
+- `app/page.tsx` (第 910-917 行 - 删除 Drawer 中的 SidebarFolders)
+
+**状态**：🟢 已修复 (2026-01-13 00:32)
+
+---
+
+### Bug #9: 移动端邮件详情无法全屏显示
+
+**发现日期**：2026-01-13
+**来源**：用户测试反馈
+
+**问题描述**：
+移动端点击邮件时，`EmailDetail` 组件被 BottomTab 遮挡或显示不全，导致无法正常查看邮件详情。
+
+**影响范围**：
+
+- 移动端无法查看邮件内容
+- 主要功能阻塞
+
+**根本原因**：
+EmailDetail 组件使用固定宽度 700px 的桌面端样式，在移动端需要全屏显示（`position: fixed`）并提高 z-index。
+
+**解决方案**：
+
+1. 在 `EmailDetail.tsx` 添加 `isMobile` prop
+2. 根据 `isMobile` 调整样式：
+   - Mobile: `position: fixed`, `inset: 0`, `width: 100%`, `zIndex: 200`
+   - Desktop: `position: relative`, `width: 700`, `zIndex: 10`
+3. 在 `page.tsx` 传入 `isMobile={isMobile}` prop
+
+**相关文件**：
+
+- `app/components/EmailDetail.tsx` (第 17-53 行)
+- `app/page.tsx` (第 1002 行)
+
+**状态**：🟢 已修复 (2026-01-13 00:20)
+
+---
+
+### Bug #10: 设置模态框打开时 FAB 按钮穿透显示
+
+**发现日期**：2026-01-13
+**来源**：用户测试反馈
+
+**问题描述**：
+移动端打开设置模态框时，底部的 FAB（写邮件）按钮仍然显示在设置界面上方，造成视觉穿透。
+
+**影响范围**：
+
+- 移动端视觉体验下降
+- FAB 可能被误点击
+
+**根本原因**：
+
+- **modal-overlay**: z-index: 100
+- **FAB**: z-index: 101
+
+FAB 的 z-index 比模态框高，导致穿透显示。
+
+**解决方案**：
+在 `page.tsx` 的 BottomTab（包含 FAB）渲染逻辑中添加 `!showSettings` 检查：
+
+```tsx
+{/* Mobile: Bottom Tab (hidden when drawer or settings modal is open) */}
+{isMobile && !drawerOpen && !showSettings && (
+  <BottomTab ... />
+)}
+```
+
+**相关文件**：
+
+- `app/page.tsx` (第 970 行)
+- `app/globals.css` (FAB z-index: 1536 行, modal-overlay z-index: 272 行)
+
+**状态**：🟢 已修复 (2026-01-13 00:38)
+
+---
+
+### Bug #11: 写邮件时发件人下拉框超出屏幕
+
+**发现日期**：2026-01-13
+**来源**：用户测试反馈
+
+**问题描述**：
+移动端写邮件时，点击发件人选择器，原生 `<select>` 的下拉列表超出屏幕底部，无法选择底部的账号。
+
+**影响范围**：
+
+- 移动端无法选择底部的发件人账号
+- 用户体验下降
+
+**尝试方案A（失败）**：
+CSS `max-height` 限制 - 原生 select 下拉列表样式由浏览器控制，CSS 无法生效。
+
+**实施方案B（成功）**：
+创建自定义下拉组件 `SenderDropdown.tsx` 替代原生 select：
+
+**技术细节**：
+
+1. 新增文件：`app/components/SenderDropdown.tsx`
+   - useState 管理展开/收起状态
+   - useEffect + useRef 实现点击外部关闭
+   - maxHeight: 40vh，overflow-y: auto
+
+2. 修改文件：`app/components/ComposeModal.tsx`
+   - 导入 SenderDropdown 组件
+   - 替换原生 select（第 78-90 行 → 第 78-83 行）
+
+3. 样式文件：`app/globals.css`
+   - 添加 `.sender-dropdown-trigger:hover` 样式
+   - 添加 `.sender-dropdown-option:hover` 样式
+   - 添加 `@keyframes dropdown-appear` 动画
+   - 移动端最大高度：`min(40vh, 300px)`
+
+**验证结果**：
+
+- ✅ `npm run lint` 通过
+- ✅ 移动端下拉框限制在屏幕内，可滚动
+- ✅ 桌面端功能正常
+- ✅ 动画效果平滑
+- ✅ 用户反馈：样式很好看
+
+**相关文件**：
+
+- `app/components/SenderDropdown.tsx` (新增)
+- `app/components/ComposeModal.tsx` (第 5, 78-83 行)
+- `app/globals.css` (第 1582-1611 行)
+
+**状态**：🟢 已修复 (2026-01-13 01:00)
+
+---
+
+### Bug #12: FAB 在 Compose Modal 上方显示（z-index 穿透）
+
+**发现日期**：2026-01-13
+**来源**：GPT Code Review
+
+**问题描述**：
+BottomTab（包含 FAB）仅在 `drawerOpen || showSettings` 时隐藏，但写邮件 modal (`compose === true`) 打开时，FAB (z-index: 101) 仍显示在 modal overlay (z-index: 100) 上方。
+
+**影响范围**：
+
+- 移动端写邮件时 FAB 视觉穿透
+- 与 Bug #10 相同模式的问题
+
+**解决方案**：
+在 `page.tsx` 的 BottomTab 渲染条件中添加 `!compose` 检查：
+
+```tsx
+{isMobile && !drawerOpen && !showSettings && !compose && (
+  <BottomTab ... />
+)}
+```
+
+**验证结果**：
+
+- ✅ `npm run lint` 通过
+- ✅ 写邮件时 FAB 自动隐藏
+
+**相关文件**：`app/page.tsx` (第 990 行)
+
+**状态**：🟢 已修复 (2026-01-13 01:14)
+
+---
+
+### Bug #13: TopBar lastSyncedAt 类型不匹配
+
+**发现日期**：2026-01-13
+**来源**：GPT Code Review
+
+**问题描述**：
+`TopBar.tsx` 期望 `lastSyncedAt: Date | null`，但 `page.tsx` state 存储的是 `string | null`。
+
+**解决方案**：
+修改 TopBar props 类型接受 `string | null`：
+
+```typescript
+// Before
+lastSyncedAt: Date | null;
+
+// After
+lastSyncedAt: string | null;
+```
+
+**验证结果**：
+
+- ✅ `npm run lint` 通过
+- ✅ TopBar 内部已使用 `new Date(lastSyncedAt)` 转换
+
+**相关文件**：`app/components/TopBar.tsx` (第 13 行)
+
+**状态**：🟢 已修复 (2026-01-13 01:18)
+
+---
+
+### Bug #14: SenderDropdown 缺少键盘无障碍支持
+
+**发现日期**：2026-01-13
+**来源**：GPT Code Review
+
+**问题描述**：
+自定义 SenderDropdown 组件缺少键盘和屏幕阅读器支持。
+
+**解决方案**：
+完整重构 SenderDropdown.tsx，添加：
+
+1. ARIA 属性 (`aria-haspopup`, `aria-expanded`, `role`, `aria-selected`)
+2. 键盘导航 (Enter/Space/Escape/Arrow keys)
+3. 焦点管理和 scrollIntoView
+4. CSS focus 样式
+
+**验证结果**：
+
+- ✅ `npm run lint` 通过
+- ✅ 键盘导航完全可用
+
+**相关文件**：
+
+- `app/components/SenderDropdown.tsx` (重构)
+- `app/globals.css` (第 1588-1596 行)
+
+**状态**：🟢 已修复 (2026-01-13 01:28)
+
+---
+
+### Feature #15: 全局 Escape 键层级退出
+
+**实现日期**：2026-01-13
+**来源**：用户需求
+
+**功能描述**：
+按 Escape 键可以逐层关闭当前打开的界面，直到回到主页面。
+
+**优先级顺序**：
+
+1. 邮件详情 (selectedEmail)
+2. 写邮件 (compose)
+3. 设置 (showSettings)
+4. 抽屉 (drawerOpen)
+
+**相关文件**：`app/page.tsx` (第 171-191 行)
+
+**状态**：🟢 已实现 (2026-01-13 01:42)
+
+---
+
+### Feature #16: 移除模态框背景渐变动画
+
+**实现日期**：2026-01-13
+**来源**：用户需求
+
+**功能描述**：
+写邮件和设置模态框的背景遮罩从渐变显示改为立即显示。
+
+**相关文件**：
+
+- `app/components/ComposeModal.tsx` (第 50 行)
+- `app/components/SettingsModal.tsx` (第 59 行)
+
+**状态**：🟢 已实现 (2026-01-13 01:42)
+
+---
+
+### Bug #17: Escape 键冲突修复
+
+**发现日期**：2026-01-13
+**来源**：GPT Code Review
+
+**问题描述**：按 Escape 关闭 SenderDropdown 时会同时关闭 compose modal。
+
+**解决方案**：在 SenderDropdown Escape 处理中添加 `event.stopPropagation()`。
+
+**相关文件**：`app/components/SenderDropdown.tsx` (第 61 行)
+
+**状态**：🟢 已修复 (2026-01-13 02:03)
+
+---
+
+### Bug #18: SenderDropdown ARIA 模式修复
+
+**发现日期**：2026-01-13
+**来源**：GPT Code Review
+
+**问题描述**：ARIA 属性在 button 上无效，静态 ID 会重复。
+
+**解决方案**：
+
+1. 添加 `role="combobox"` 到 trigger button
+2. 使用 `useId()` 生成唯一 ID
+
+**相关文件**：`app/components/SenderDropdown.tsx` (第 3, 147, 157 行)
+
+**状态**：🟢 已修复 (2026-01-13 02:03)
+
+---
+
+### Bug #19: 模态框退出动画修复
+
+**发现日期**：2026-01-13
+**来源**：GPT Code Review
+
+**问题描述**：Feature #16 只移除了进入动画，退出动画仍在。
+
+**解决方案**：设置 `exit={{ opacity: 1 }}` 和 `transition={{ duration: 0 }}`。
+
+**相关文件**：
+
+- `app/components/ComposeModal.tsx` (第 52-53 行)
+- `app/components/SettingsModal.tsx` (第 61-62 行)
+
+**状态**：🟢 已修复 (2026-01-13 02:03)
 
 ---
 

@@ -10,6 +10,9 @@ import MessageList from './components/MessageList';
 import ComposeModal, { type SaveStatus } from './components/ComposeModal';
 import SettingsModal from './components/SettingsModal';
 import EmailDetail from './components/EmailDetail';
+import MobileDrawer from './components/MobileDrawer';
+import BottomTab from './components/BottomTab';
+import { useIsMobile } from './hooks/useMediaQuery';
 
 // 强调色定义
 const ACCENT_COLORS = [
@@ -97,6 +100,10 @@ export default function Dashboard() {
   const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>('disconnected');
   const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(null);
 
+  // M3: Mobile drawer state
+  const isMobile = useIsMobile();
+  const [drawerOpen, setDrawerOpen] = useState(false);
+
   // P7: 节流刷新，避免消息风暴
   const lastRefreshRef = useRef<number>(0);
   const REFRESH_THROTTLE = 4000; // 4 秒节流
@@ -160,6 +167,28 @@ export default function Dashboard() {
       setSendError(null);
     }
   }, [compose]);
+
+  // Global Escape key handler - close layers in priority order
+  const hasSelectedEmail = !!selectedEmail;
+  useEffect(() => {
+    const handleGlobalEscape = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return;
+
+      // Priority order: selectedEmail → compose → settings → drawer
+      if (hasSelectedEmail) {
+        setSelectedEmail(null);
+      } else if (compose) {
+        setCompose(false);
+      } else if (showSettings) {
+        setShowSettings(false);
+      } else if (drawerOpen) {
+        setDrawerOpen(false);
+      }
+    };
+
+    document.addEventListener('keydown', handleGlobalEscape);
+    return () => document.removeEventListener('keydown', handleGlobalEscape);
+  }, [hasSelectedEmail, compose, showSettings, drawerOpen]);
 
   // P7: 节流刷新函数
   const throttledRefresh = useCallback(() => {
@@ -847,37 +876,75 @@ export default function Dashboard() {
 
   return (
     <div className="app-shell">
-      {/* Sidebar */}
-      <div className="glass-lg sidebar">
-        {/* Header */}
-        <div className="sidebar-header">
-          <div className="sidebar-logo">
-            <div className="sidebar-logo-icon">
-              <Mail size={18} />
+      {/* Desktop: Sidebar */}
+      {!isMobile && (
+        <div className="glass-lg sidebar">
+          {/* Header */}
+          <div className="sidebar-header">
+            <div className="sidebar-logo">
+              <div className="sidebar-logo-icon">
+                <Mail size={18} />
+              </div>
+              <span className="sidebar-logo-text">Nexus Mail</span>
             </div>
-            <span className="sidebar-logo-text">Nexus Mail</span>
+            <button onClick={() => setShowSettings(true)} className="glass-button sidebar-settings-btn" title="设置">
+              <Settings size={16} />
+            </button>
           </div>
-          <button onClick={() => setShowSettings(true)} className="glass-button sidebar-settings-btn" title="设置">
-            <Settings size={16} />
-          </button>
+
+          {/* Account List - 自动显示所有系统账号 */}
+          <SidebarAccounts
+            accounts={accounts}
+            selected={selected}
+            setSelected={setSelected}
+            tags={tags}
+            editingTagId={editingTagId}
+            setEditingTagId={setEditingTagId}
+            getTagBadge={getTagBadge}
+            getColor={getColor}
+            updateTag={updateTag}
+          />
+
+          {/* Navigation */}
+          <SidebarFolders activeFolder={activeFolder} setActiveFolder={setActiveFolder} />
         </div>
+      )}
 
-        {/* Account List - 自动显示所有系统账号 */}
-        <SidebarAccounts
-          accounts={accounts}
-          selected={selected}
-          setSelected={setSelected}
-          tags={tags}
-          editingTagId={editingTagId}
-          setEditingTagId={setEditingTagId}
-          getTagBadge={getTagBadge}
-          getColor={getColor}
-          updateTag={updateTag}
-        />
+      {/* Mobile: Drawer */}
+      {isMobile && (
+        <MobileDrawer open={drawerOpen} onClose={() => setDrawerOpen(false)}>
+          {/* Account List */}
+          <SidebarAccounts
+            accounts={accounts}
+            selected={selected}
+            setSelected={(id) => {
+              setSelected(id);
+              setDrawerOpen(false); // Close drawer on selection
+            }}
+            tags={tags}
+            editingTagId={editingTagId}
+            setEditingTagId={setEditingTagId}
+            getTagBadge={getTagBadge}
+            getColor={getColor}
+            updateTag={updateTag}
+          />
 
-        {/* Navigation */}
-        <SidebarFolders activeFolder={activeFolder} setActiveFolder={setActiveFolder} />
-      </div>
+          {/* Settings button in drawer */}
+          <div style={{ padding: 16, marginTop: 'auto', borderTop: '1px solid var(--stroke-1)' }}>
+            <button
+              onClick={() => {
+                setShowSettings(true);
+                setDrawerOpen(false);
+              }}
+              className="glass-button"
+              style={{ width: '100%', justifyContent: 'flex-start', gap: 12 }}
+            >
+              <Settings size={16} />
+              设置
+            </button>
+          </div>
+        </MobileDrawer>
+      )}
 
       {/* Main Area */}
       <div className="main-area">
@@ -889,6 +956,8 @@ export default function Dashboard() {
           connectionStatus={connectionStatus}
           syncing={syncing}
           lastSyncedAt={lastSyncedAt}
+          isMobile={isMobile}
+          onMenuClick={() => setDrawerOpen(true)}
           onComposeClick={() => {
             setCompose(true);
             setSendError(null);
@@ -919,6 +988,21 @@ export default function Dashboard() {
         />
       </div>
 
+      {/* Mobile: Bottom Tab (hidden when drawer, settings, or compose modal is open) */}
+      {isMobile && !drawerOpen && !showSettings && !compose && (
+        <BottomTab
+          activeFolder={activeFolder}
+          setActiveFolder={setActiveFolder}
+          onComposeClick={() => {
+            setCompose(true);
+            setSendError(null);
+            if (selected && selected !== 'all') {
+              setForm(prev => ({ ...prev, from: selected }));
+            }
+          }}
+        />
+      )}
+
       {/* Email Detail Panel */}
       <AnimatePresence>
         {selectedEmail && (
@@ -928,6 +1012,7 @@ export default function Dashboard() {
             onClose={() => setSelectedEmail(null)}
             onDelete={deleteEmail}
             onArchive={archiveEmail}
+            isMobile={isMobile}
           />
         )}
       </AnimatePresence>

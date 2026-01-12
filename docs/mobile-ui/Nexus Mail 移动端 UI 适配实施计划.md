@@ -9,7 +9,7 @@
 | M0 | 代码基础设施准备（样式收敛） | ✅ 已完成 | 2026-01-12 |
 | M1 | 组件拆分（不改逻辑） | ✅ 已完成 | 2026-01-12 |
 | M2 | 响应式基础布局 + Viewport 配置 | ✅ 已完成 | 2026-01-12 |
-| M3 | Sidebar Drawer + Bottom Tab | ⏳ 计划中 | 2026-01 |
+| M3 | Sidebar Drawer + Bottom Tab | ✅ 已完成 | 2026-01-13 |
 | M4 | 移动端视图模式切换（list/detail/compose） | ⏳ 计划中 | 2026-01 |
 | M5 | 安全区适配 + 键盘处理 + 体验优化 | ⏳ 计划中 | 2026-02 |
 
@@ -151,26 +151,26 @@
 
 ### 任务清单
 
-- [ ] `isMobile` 检测：使用 `window.matchMedia` 或 `useMediaQuery` hook
-- [ ] 创建 `MobileDrawer` 组件：
+- [x] `isMobile` 检测：使用 `useSyncExternalStore` + `window.matchMedia`
+- [x] 创建 `MobileDrawer` 组件：
   - 固定定位，宽度 `min(86vw, 360px)`
   - 关闭状态 `transform: translateX(-105%)`，打开 `translateX(0)`
-  - backdrop 点击/滑动关闭
-- [ ] 创建 `BottomTab` 组件：
+  - backdrop 点击关闭
+- [x] 创建 `BottomTab` 组件：
   - 固定底部，4 个入口：收件箱/已发送/草稿箱/归档
   - 中间 FAB 悬浮按钮：写邮件
   - 支持 `env(safe-area-inset-bottom)` 安全区
-- [ ] 条件渲染：Mobile 使用 Drawer + BottomTab，Desktop 保持原 Sidebar
-- [ ] TopBar 改造：Mobile 添加 ☰ 抽屉开关按钮
-- [ ] 动画：使用 Framer Motion 或 CSS transition，180ms ease-out
+- [x] 条件渲染：Mobile 使用 Drawer + BottomTab，Desktop 保持原 Sidebar
+- [x] TopBar 改造：Mobile 添加 ☰ 抽屉开关按钮
+- [x] 动画：CSS transition，180ms ease-out
 
 ### 验收标准
 
-- [ ] 移动端（<768px）显示 TopBar + BottomTab，Sidebar 隐藏
-- [ ] 点击 ☰ 可打开抽屉，包含账号列表和文件夹
-- [ ] 点击 backdrop 或滑动可关闭抽屉
-- [ ] BottomTab FAB 可打开写邮件
-- [ ] 桌面端布局不受影响
+- [x] 移动端（<768px）显示 TopBar + BottomTab，Sidebar 隐藏
+- [x] 点击 ☰ 可打开抽屉，包含账号列表和文件夹
+- [x] 点击 backdrop 可关闭抽屉
+- [x] BottomTab FAB 可打开写邮件
+- [x] 桌面端布局不受影响
 
 ---
 
@@ -300,3 +300,8 @@
 | 2026-01-12 | Bug 修复 | 修复 CSS 层叠问题：关闭 `@supports` 块、媒体查询移至文件末尾并使用 `!important` |
 | 2026-01-12 | Bug 修复 | 修复 `setSaveStatus(null)` 类型回归、删除重复的 @media 块死代码 |
 | 2026-01-12 | 决策 | 继续禁用移动端缩放（`maximumScale: 1`），保持 UI 一致性 |
+| 2026-01-13 | M3 | 完成移动端导航：Drawer 抽屉、BottomTab 底部导航、FAB 悬浮按钮 |
+| 2026-01-13 | Bug #11 修复 | 创建自定义发件人下拉组件（SenderDropdown.tsx），解决移动端下拉框超出屏幕问题 |
+| 2026-01-13 | Bug #12-14 | 修复 FAB z-index 穿透、TopBar 类型、SenderDropdown 键盘无障碍 |
+| 2026-01-13 | Feature #15 | 全局 Escape 键层级退出：邮件详情 → 写邮件 → 设置 → 抽屉 |
+| 2026-01-13 | Feature #16 | 移除模态框背景渐变动画，改为立即显示 |

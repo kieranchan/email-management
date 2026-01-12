@@ -20,6 +20,7 @@ interface EmailDetailProps {
   onClose: () => void;
   onDelete: (id: string) => void;
   onArchive: (id: string, archived: boolean) => void;
+  isMobile?: boolean;
 }
 
 const transitionBase = { duration: 0.15, ease: [0.2, 0.8, 0.2, 1] };
@@ -30,22 +31,28 @@ export default function EmailDetail({
   onClose,
   onDelete,
   onArchive,
+  isMobile = false,
 }: EmailDetailProps) {
   return (
     <motion.div
-      initial={{ opacity: 0, x: 20 }}
-      animate={{ opacity: 1, x: 0 }}
-      exit={{ opacity: 0, x: 20 }}
+      initial={{ opacity: 0, x: isMobile ? 0 : 20, y: isMobile ? 20 : 0 }}
+      animate={{ opacity: 1, x: 0, y: 0 }}
+      exit={{ opacity: 0, x: isMobile ? 0 : 20, y: isMobile ? 20 : 0 }}
       transition={transitionBase}
       className="glass-lg"
       style={{
-        width: 700,
+        // Mobile: fixed full-screen, Desktop: sidebar panel
+        position: isMobile ? 'fixed' : 'relative',
+        inset: isMobile ? 0 : undefined,
+        width: isMobile ? '100%' : 700,
+        height: isMobile ? '100%' : undefined,
         flexShrink: 0,
         display: 'flex',
         flexDirection: 'column',
-        zIndex: 10,
+        zIndex: isMobile ? 200 : 10, // Above BottomTab (z-index: 100)
         padding: 0,
-        borderLeft: '1px solid var(--stroke-1)'
+        borderLeft: isMobile ? 'none' : '1px solid var(--stroke-1)',
+        borderRadius: isMobile ? 0 : undefined,
       }}
     >
       {/* Detail Header */}
