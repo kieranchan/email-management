@@ -60,3 +60,6 @@ next-env.d.ts
 *.local.md
 *.local.json
 *.backup
+
+# zip
+*.zip

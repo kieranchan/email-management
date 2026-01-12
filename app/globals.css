@@ -59,6 +59,15 @@
     --dur-base: 150ms;
     --dur-modal: 180ms;
     --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
+
+    /* === Mobile Adaption === */
+    --app-h: 100vh;
+}
+
+@supports (height: 100dvh) {
+    :root {
+        --app-h: 100dvh;
+    }
 }
 
 /* === Typography Tokens === */
@@ -529,8 +538,22 @@ body.noise::before {
 .app-shell {
     display: flex;
     height: 100vh;
+    /* Fallback */
+    height: var(--app-h);
     width: 100vw;
+    overflow: hidden;
+    position: relative;
 }
+
+/* === Media Queries === */
+/* Tablet */
+@media (max-width: 1024px) {
+    .app-shell {
+        /* Sidebar might be collapsible here later */
+    }
+}
+
+/* Mobile media queries moved to end of file for proper cascade - see line 1400+ */
 
 .glass {
     background: var(--surface-1);
@@ -840,4 +863,543 @@ body.noise::before {
     border: none;
     border-top: 1px solid #ddd;
     margin: 12px 0;
+}
+
+/* ============================================
+   Mobile UI Adaptation - M0 Style Classes
+   ============================================ */
+
+/* === Sidebar === */
+.sidebar {
+    width: 260px;
+    display: flex;
+    flex-direction: column;
+    z-index: 10;
+    padding: 0;
+}
+
+.sidebar-header {
+    height: 64px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 20px;
+    border-bottom: 1px solid var(--stroke-1);
+}
+
+.sidebar-logo {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.sidebar-logo-icon {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    background: var(--accent);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+    box-shadow: 0 0 10px var(--accent);
+}
+
+.sidebar-logo-text {
+    font-weight: 600;
+    font-size: 16px;
+    color: var(--text-1);
+    letter-spacing: -0.01em;
+}
+
+.sidebar-settings-btn {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+}
+
+.sidebar-accounts {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: 16px;
+    scrollbar-width: thin;
+    scrollbar-color: var(--stroke-2) transparent;
+}
+
+.sidebar-section-title {
+    font-size: 12px;
+    color: var(--text-3);
+    padding: 0 8px 8px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    font-weight: 600;
+}
+
+.sidebar-nav {
+    border-top: 1px solid var(--stroke-1);
+    padding: 16px;
+}
+
+/* === Account Item Enhancements === */
+.account-item-content {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 12px;
+    cursor: pointer;
+}
+
+.account-item-inner {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex: 1;
+    min-width: 0;
+}
+
+.account-avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    font-weight: 600;
+    color: #fff;
+    flex-shrink: 0;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+}
+
+.account-avatar-square {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    background: var(--surface-2);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    border: 1px solid var(--stroke-2);
+}
+
+.account-info {
+    flex: 1;
+    min-width: 0;
+    padding-right: 8px;
+}
+
+.account-name {
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--text-2);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.account-name.active {
+    color: var(--text-1);
+}
+
+.account-email {
+    font-size: 12px;
+    color: var(--text-3);
+    opacity: 0.8;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.account-tag {
+    flex-shrink: 0;
+    padding: 0 8px;
+    height: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 10px;
+    font-size: 10px;
+    font-weight: 700;
+    color: #000;
+    cursor: pointer;
+    transition: transform 0.1s;
+}
+
+.account-tag:hover {
+    transform: scale(1.1);
+}
+
+.tag-dropdown {
+    position: absolute;
+    right: 8px;
+    top: 100%;
+    margin-top: 4px;
+    background: var(--surface-3);
+    border: 1px solid var(--stroke-2);
+    border-radius: 10px;
+    padding: 4px;
+    z-index: 50;
+    box-shadow: var(--elev-2);
+}
+
+.tag-option {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 12px;
+    cursor: pointer;
+    border-radius: 6px;
+    font-size: 12px;
+    color: var(--text-1);
+}
+
+.tag-color-dot {
+    width: 16px;
+    height: 16px;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10px;
+    font-weight: 700;
+    color: #000;
+}
+
+/* === Folder Item Enhancements === */
+.folder-item-content {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 12px;
+    cursor: pointer;
+    margin-bottom: 2px;
+}
+
+.folder-icon {
+    opacity: 0.7;
+}
+
+.folder-icon.active {
+    opacity: 1;
+}
+
+.folder-label {
+    font-size: 13px;
+    font-weight: 400;
+}
+
+.folder-label.active {
+    font-weight: 500;
+}
+
+/* === TopBar === */
+.topbar {
+    height: 64px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 32px;
+    border-bottom: 1px solid var(--stroke-1);
+    backdrop-filter: blur(10px);
+    z-index: 5;
+}
+
+.topbar-title {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.topbar-title h1 {
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--text-1);
+    margin: 0;
+}
+
+.topbar-account-badge {
+    font-size: 13px;
+    color: var(--text-3);
+    padding: 4px 10px;
+    background: var(--surface-1);
+    border-radius: 20px;
+}
+
+.topbar-actions {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+}
+
+/* === Connection Status === */
+.connection-status {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+}
+
+.connection-status.connected {
+    background: rgba(16, 185, 129, 0.1);
+    border: 1px solid rgba(16, 185, 129, 0.3);
+    color: #10b981;
+}
+
+.connection-status.reconnecting {
+    background: rgba(245, 158, 11, 0.1);
+    border: 1px solid rgba(245, 158, 11, 0.3);
+    color: #f59e0b;
+}
+
+.connection-status.disconnected {
+    background: rgba(239, 68, 68, 0.1);
+    border: 1px solid rgba(239, 68, 68, 0.3);
+    color: #ef4444;
+}
+
+/* === Message List === */
+.message-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: 24px 32px;
+    scrollbar-width: thin;
+    scrollbar-color: var(--stroke-2) transparent;
+}
+
+.message-list-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    color: var(--text-3);
+    text-align: center;
+}
+
+.message-list-empty-icon {
+    margin-bottom: 16px;
+    opacity: 0.5;
+}
+
+.message-list-empty-title {
+    font-size: 16px;
+    font-weight: 500;
+    color: var(--text-2);
+    margin-bottom: 8px;
+}
+
+.message-list-empty-hint {
+    font-size: 14px;
+    color: var(--text-3);
+}
+
+/* === Batch Action Bar === */
+.batch-bar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 16px;
+    margin-bottom: 16px;
+    border-radius: 10px;
+}
+
+.batch-bar-count {
+    font-size: 13px;
+    color: var(--text-2);
+}
+
+.batch-bar-actions {
+    display: flex;
+    gap: 8px;
+    margin-left: auto;
+}
+
+/* === Loading States === */
+.loading-text {
+    padding: 16px;
+    text-align: center;
+    color: var(--text-3);
+    font-size: 13px;
+}
+
+/* === Responsive Breakpoints (to be used in later phases) === */
+/* Desktop: >= 1024px - default styles above */
+/* Tablet: 768px - 1023px */
+/* Mobile: < 768px */
+
+/* === Main Area === */
+.main-area {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    position: relative;
+}
+
+/* === Message Row === */
+.message-row-content {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 14px 20px;
+    margin-bottom: 10px;
+    cursor: pointer;
+    position: relative;
+    overflow: hidden;
+}
+
+.message-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 15px;
+    font-weight: 600;
+    color: #fff;
+    flex-shrink: 0;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.message-content {
+    flex: 1;
+    min-width: 0;
+}
+
+.message-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 4px;
+}
+
+.message-from {
+    font-size: 15px;
+    font-weight: 500;
+    color: var(--text-1);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.message-from.unread {
+    font-weight: 600;
+}
+
+.message-time {
+    font-size: 12px;
+    color: var(--text-3);
+    font-family: var(--font-ui);
+}
+
+.message-subject-row {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+.message-subject {
+    font-size: 14px;
+    color: var(--text-2);
+    font-weight: 400;
+}
+
+.message-subject.unread {
+    color: var(--text-1);
+    font-weight: 500;
+}
+
+.message-preview {
+    font-size: 13px;
+    color: var(--text-3);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    flex: 1;
+}
+
+/* === Unread Indicator === */
+.unread-indicator {
+    position: absolute;
+    left: 0;
+    top: 12px;
+    bottom: 12px;
+    width: 3px;
+    background: var(--accent);
+    border-top-right-radius: 3px;
+    border-bottom-right-radius: 3px;
+}
+
+/* === Checkbox === */
+.message-checkbox {
+    position: absolute;
+    right: 16px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 20px;
+    height: 20px;
+    border-radius: 6px;
+    border: 2px solid var(--stroke-2);
+    background: var(--surface-1);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.message-checkbox:hover {
+    border-color: var(--accent);
+}
+
+.message-checkbox.checked {
+    background: var(--accent);
+    border-color: var(--accent);
+}
+
+/* === Account Tag in Message Row === */
+.message-account-tag {
+    font-size: 10px;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-weight: 700;
+    opacity: 0.9;
+}
+
+/* ============================================
+   Mobile UI Adaptation - Responsive Overrides
+   MUST be at the end to override all styles
+   ============================================ */
+
+/* Tablet */
+@media (max-width: 1024px) {
+    .sidebar {
+        /* Collapsible sidebar for tablet - TODO in M3 */
+    }
+}
+
+/* Mobile */
+@media (max-width: 768px) {
+    .app-shell {
+        flex-direction: column;
+    }
+
+    /* Hide Sidebar by default on mobile (will use Drawer in M3) */
+    .sidebar {
+        display: none !important;
+    }
+
+    /* Main area takes full width */
+    .main-area {
+        width: 100%;
+    }
 }
