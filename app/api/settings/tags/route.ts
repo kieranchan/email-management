@@ -33,7 +33,7 @@ export async function GET() {
     try {
         const data = await fs.readFile(DATA_FILE, 'utf-8');
         return NextResponse.json(JSON.parse(data));
-    } catch (error) {
+    } catch {
         return NextResponse.json({ error: 'Failed to load tags' }, { status: 500 });
     }
 }
@@ -66,7 +66,7 @@ export async function POST(request: Request) {
         await fs.writeFile(DATA_FILE, JSON.stringify(tags, null, 2));
 
         return NextResponse.json(newTag);
-    } catch (error) {
+    } catch {
         return NextResponse.json({ error: 'Failed to create tag' }, { status: 500 });
     }
 }

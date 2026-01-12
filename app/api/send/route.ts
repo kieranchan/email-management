@@ -88,7 +88,7 @@ export async function POST(request: Request) {
                     where: { accountId_providerKey: { accountId, providerKey } },
                     data: { localStatus: 'ERROR' }
                 });
-            } catch (ignore) { /* If record creation failed, this update will fail too, just ignore */ }
+            } catch { /* If record creation failed, this update will fail too, just ignore */ }
         }
 
         return NextResponse.json({ error: 'Failed to send email' }, { status: 500 });

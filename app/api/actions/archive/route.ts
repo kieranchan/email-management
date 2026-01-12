@@ -1,7 +1,17 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/app/lib/prisma';
 
-// POST /api/actions/archive - Archive or restore email
+/**
+ * POST /api/actions/archive - Archive or restore email
+ * 
+ * Body:
+ * - messageId: string
+ * - archived: boolean
+ * 
+ * Returns:
+ * - success, archived, action
+ * - uid, accountId (供前端调用 WebSocket 同步 IMAP)
+ */
 export async function POST(request: Request) {
     try {
         const body = await request.json();
@@ -15,15 +25,19 @@ export async function POST(request: Request) {
             return NextResponse.json({ error: 'archived must be a boolean' }, { status: 400 });
         }
 
-        await prisma.email.update({
+        // 更新并获取邮件信息
+        const email = await prisma.email.update({
             where: { id: messageId },
             data: { archived },
+            select: { uid: true, accountId: true },
         });
 
         return NextResponse.json({
             success: true,
             archived,
-            action: archived ? 'archived' : 'restored'
+            action: archived ? 'archived' : 'restored',
+            uid: email.uid,           // 供前端 WebSocket 同步
+            accountId: email.accountId // 供前端 WebSocket 同步
         });
     } catch (error) {
         console.error('Archive action error:', error);

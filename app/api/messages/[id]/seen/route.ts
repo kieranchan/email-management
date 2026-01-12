@@ -8,6 +8,10 @@ import prisma from '@/app/lib/prisma';
  * 
  * Body:
  * - seen: boolean (true = 已读, false = 未读)
+ * 
+ * Returns:
+ * - success, id, seen, flags
+ * - uid, accountId (供前端调用 WebSocket 同步 IMAP)
  */
 export async function POST(
     request: Request,
@@ -22,10 +26,10 @@ export async function POST(
             return NextResponse.json({ error: 'seen must be a boolean' }, { status: 400 });
         }
 
-        // 获取当前邮件
+        // 获取当前邮件（包含 uid 和 accountId）
         const email = await prisma.email.findUnique({
             where: { id },
-            select: { flags: true },
+            select: { flags: true, uid: true, accountId: true },
         });
 
         if (!email) {
@@ -65,6 +69,8 @@ export async function POST(
             id,
             seen,
             flags,
+            uid: email.uid,           // 供前端 WebSocket 同步
+            accountId: email.accountId // 供前端 WebSocket 同步
         });
     } catch (error) {
         console.error('Mark seen error:', error);

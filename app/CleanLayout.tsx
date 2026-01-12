@@ -26,7 +26,7 @@ export default function CleanLayout({ children }: { children: React.ReactNode })
         removeOverlay();
 
         // 2. 使用 MutationObserver 监听 DOM 变化，防止被重新添加
-        const observer = new MutationObserver((mutations) => {
+        const observer = new MutationObserver(() => {
             removeOverlay();
         });
 

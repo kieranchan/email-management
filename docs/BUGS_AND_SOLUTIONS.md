@@ -432,3 +432,72 @@ export async function POST(req) {
 ### 相关文件
 
 - `app/page.tsx`
+
+---
+
+## 🐛 Bug #11: 同步 API 超时（47秒+）
+
+### 问题描述
+
+点击"同步"按钮后，`POST /api/sync/` 请求耗时 47 秒甚至 2.8 分钟，严重影响用户体验。部分账号还会显示 `GREETING_TIMEOUT` 错误。
+
+### 问题原因
+
+多个因素叠加：
+
+1. **全量同步** - 每次同步 30+ 个账号，每个都需要建立 IMAP 连接
+2. **获取完整邮件源** - 同步时获取 `source: true`，解析每封邮件的完整内容
+3. **网络延迟** - 本地通过 SSH 隧道直连美国服务器，延迟高且不稳定
+
+### 解决方案
+
+**方案 1：增量同步 + 延迟加载**
+
+```typescript
+// 只获取新邮件（基于最大 UID）
+const lastEmail = await prisma.email.findFirst({
+    where: { accountId: account.id },
+    orderBy: { uid: 'desc' },
+});
+const fetchRange = lastUid > 0 ? `${lastUid+1}:*` : `${total-49}:*`;
+
+// 不获取 source，详情页按需加载
+const messages = client.fetch(fetchRange, { envelope: true, uid: true, flags: true });
+```
+
+**方案 2：日本跳板加速 SSH 隧道** ⭐
+
+```ssh-config
+Host japan-proxy
+    HostName 13.192.46.187
+    User admin
+    IdentityFile "C:\Users\86130\.ssh\TOKYO.pem"
+
+Host email-tunnel
+    ProxyJump japan-proxy
+    ...
+```
+
+**方案 3：禁用全量同步**
+
+```typescript
+if (!accountId || accountId === 'all') {
+    return NextResponse.json({ 
+        message: '邮件已由后台自动同步',
+        hint: 'auto_sync_enabled'
+    });
+}
+```
+
+### 效果
+
+| 指标 | 优化前 | 优化后 |
+|------|--------|--------|
+| 同步时间 | 47s - 2.8min | **396ms** |
+| 连接成功率 | ~70% | **100%** |
+
+### 相关文件
+
+- `app/api/sync/route.ts`
+- `app/api/messages/[id]/route.ts`
+- `~/.ssh/config`

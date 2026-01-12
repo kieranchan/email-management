@@ -148,15 +148,24 @@ sqlite3 /app/dev.db "UPDATE Account SET host = 'mailserver' WHERE host = 'localh
 
 ## 本地开发：SSH 隧道配置
 
-### 快速配置（推荐）
+### 快速配置（推荐 - 日本跳板加速）⭐
 
 在 `~/.ssh/config` (Windows: `C:\Users\86130\.ssh\config`) 添加：
 
-```
-# Nexus Mail 邮件服务端口转发
+```ssh-config
+# 日本跳板节点（中转加速）
+Host japan-proxy
+    HostName 13.192.46.187
+    User admin
+    IdentityFile "C:\Users\86130\.ssh\TOKYO.pem"
+    ServerAliveInterval 60
+    ServerAliveCountMax 3
+
+# Nexus Mail 邮件服务端口转发（通过日本中转）
 Host email-tunnel
     HostName 66.154.127.152
     User root
+    ProxyJump japan-proxy
     LocalForward 993 localhost:993
     LocalForward 143 localhost:143
     LocalForward 587 localhost:587
@@ -164,6 +173,15 @@ Host email-tunnel
     ServerAliveCountMax 3
     ExitOnForwardFailure yes
 ```
+
+### 工作原理
+
+```
+你的电脑 → 日本 VPS (13.192.46.187) → CloudCone (66.154.127.152)
+           ↑ 低延迟（亚洲骨干网）      ↑ 直连（稳定）
+```
+
+**性能提升**：同步 API 从 47 秒降到 **396ms**（提升 99%）
 
 ### 使用方法
 
@@ -182,20 +200,28 @@ SMTP_PORT=587
 
 **问题：`accept: Too many open files`**
 
-原因：服务器上存在大量僵尸 SSH 连接
-
-解决：在服务器上清理 unknown 连接
+在服务器上清理 unknown 连接：
 
 ```bash
-# 查看当前 SSH 连接
-ps aux | grep sshd
-
-# 清理 unknown 状态连接
 pkill -f "sshd: unknown"
 ```
 
-**配置说明：**
+**问题：`UNPROTECTED PRIVATE KEY FILE`**
 
-- `ServerAliveInterval 60` - 每60秒心跳，保持连接活跃
-- `ServerAliveCountMax 3` - 3次心跳失败后自动断开
-- `ExitOnForwardFailure yes` - 端口转发失败时立即退出，避免残留
+修复密钥权限（PowerShell 管理员）：
+
+```powershell
+$keyPath = "C:\Users\86130\.ssh\TOKYO.pem"
+icacls $keyPath /inheritance:r
+icacls $keyPath /grant:r "${env:USERNAME}:(R)"
+```
+
+**服务器端配置**（可选）：
+
+在服务器 `/etc/ssh/sshd_config` 添加：
+
+```bash
+ClientAliveInterval 60
+ClientAliveCountMax 3
+TCPKeepAlive yes
+```

@@ -34,7 +34,7 @@ export async function GET() {
         const mode = account?.host === 'localhost' ? 'dev' : 'prod';
 
         return NextResponse.json({ mode, host: account?.host });
-    } catch (error) {
+    } catch {
         return NextResponse.json({ error: 'Failed to get mode' }, { status: 500 });
     }
 }

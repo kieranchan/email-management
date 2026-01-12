@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Mail, RefreshCw, Send, Inbox, Archive, Settings, FileText, X, Moon, Sun, Check, ArrowLeft, Layers } from 'lucide-react';
+import { Mail, RefreshCw, Send, Inbox, Archive, Settings, FileText, X, Moon, Sun, Check, ArrowLeft, Layers, Trash2 } from 'lucide-react';
 
 // 强调色定义
 const ACCENT_COLORS = [
@@ -28,6 +28,8 @@ interface Email {
   isDraft?: boolean;
   accountLabel?: string;
   accountColorTag?: string;
+  uid?: number;          // IMAP UID，用于同步
+  accountId?: string;    // 账号 ID，用于同步
 }
 interface Tag { id: string; label: string; color: string; }
 
@@ -74,6 +76,14 @@ export default function Dashboard() {
   const [sending, setSending] = useState(false);
   const [sendError, setSendError] = useState<string | null>(null);
   const [showToast, setShowToast] = useState(false);
+  const [toastMessage, setToastMessage] = useState<string>(''); // 动效增强：自定义 Toast 消息
+
+  // 多选状态
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [batchProgress, setBatchProgress] = useState<{ current: number; total: number } | null>(null); // 批量操作进度
+
+  // WebSocket 连接用于接收实时更新和同步结果
+  const [ws, setWs] = useState<WebSocket | null>(null);
 
   // Auto-save Debounce Effect
   useEffect(() => {
@@ -126,6 +136,65 @@ export default function Dashboard() {
       setSendError(null);
     }
   }, [compose]);
+
+  // WebSocket 连接：接收实时邮件更新和同步结果
+  // WebSocket connection: new mail push + sync results with auto-reconnect
+  useEffect(() => {
+    let socket: WebSocket | null = null;
+    let reconnectTimer: NodeJS.Timeout | null = null;
+
+    const connect = () => {
+      // avoid duplicate open connections
+      if (socket && socket.readyState === WebSocket.OPEN) return;
+
+      try {
+        // 使用环境变量配置 WebSocket URL，默认为本地开发地址
+        const wsUrl = process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:3001';
+        socket = new WebSocket(wsUrl);
+        setWs(socket);
+
+        socket.onopen = () => {
+          console.log('[WS] Connected to worker');
+        };
+
+        socket.onmessage = (event) => {
+          try {
+            const data = JSON.parse(event.data);
+            if (data.type === 'new_email') {
+              loadEmails();
+            } else if (data.type === 'sync_result') {
+              console.log('[WS] Sync result:', data);
+              setSyncing(false);
+              loadEmails();
+            }
+          } catch (e) {
+            console.error('[WS] Parse error:', e);
+          }
+        };
+
+        socket.onerror = () => {
+          console.warn('[WS] Connect failed - worker may be stopped (npm run worker)');
+        };
+
+        socket.onclose = () => {
+          console.log('[WS] Disconnected, reconnecting in 5s...');
+          setWs(null);
+          setSyncing(false);
+          reconnectTimer = setTimeout(connect, 5000);
+        };
+      } catch (e) {
+        console.error('[WS] Connection failed:', e);
+        reconnectTimer = setTimeout(connect, 5000);
+      }
+    };
+
+    connect();
+
+    return () => {
+      if (reconnectTimer) clearTimeout(reconnectTimer);
+      socket?.close();
+    };
+  }, []);
 
   // Folder Navigation
   type FolderType = 'inbox' | 'sent' | 'drafts' | 'archive';
@@ -221,9 +290,41 @@ export default function Dashboard() {
         if (r.ok) {
           const detail = await r.json();
           setSelectedEmail(prev => prev?.id === email.id ? { ...prev, ...detail } : prev);
+          // 更新邮件的 uid 和 accountId 用于后续同步
+          if (detail.uid) email.uid = detail.uid;
+          if (detail.accountId) email.accountId = detail.accountId;
         }
       } catch (e) {
         console.error('Failed to load email details', e);
+      }
+    }
+
+    // 标记为已读（如果是未读邮件）
+    if (email.unread) {
+      try {
+        const r = await fetch(`/api/messages/${email.id}/seen/`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ seen: true })
+        });
+        if (r.ok) {
+          const result = await r.json();
+          // 更新本地状态
+          setEmails(prev => prev.map(e => e.id === email.id ? { ...e, unread: false } : e));
+          setSelectedEmail(prev => prev?.id === email.id ? { ...prev, unread: false } : prev);
+
+          // 通过 WebSocket 同步到 IMAP
+          if (ws && ws.readyState === WebSocket.OPEN && result.uid && result.accountId) {
+            ws.send(JSON.stringify({
+              type: 'markSeen',
+              accountId: result.accountId,
+              uid: result.uid
+            }));
+            console.log('[WS] Sent markSeen:', result.uid);
+          }
+        }
+      } catch (e) {
+        console.error('Failed to mark as read', e);
       }
     }
   }
@@ -237,7 +338,7 @@ export default function Dashboard() {
       const r = await fetch(selected && selected !== 'all' ? `/api/drafts/?scope=account&accountId=${selected}` : '/api/drafts/?scope=all');
       if (r.ok) {
         const data = await r.json();
-        const enhanced = data.items?.map((d: any) => ({
+        const enhanced = data.items?.map((d: { id: string; to?: string; subject?: string; updatedAt?: string; preview?: string; account?: { name?: string; tag?: string } }) => ({
           id: d.id,
           from: d.to || '(无收件人)',
           subject: d.subject || '(无主题)',
@@ -267,7 +368,7 @@ export default function Dashboard() {
     if (r.ok) {
       const data = await r.json();
       // Map API response to UI model
-      const enhanced = (data.items || []).map((e: any) => ({
+      const enhanced = (data.items || []).map((e: { id: string; from?: string; to?: string; subject?: string; date?: string; unread?: boolean; snippet?: string; archived?: boolean; accountLabel?: string; accountColorTag?: string; uid?: number; accountId?: string }) => ({
         id: e.id,
         from: e.from,
         to: e.to,
@@ -355,57 +456,12 @@ export default function Dashboard() {
     document.documentElement.style.setProperty('--accent', accent);
   }, [accent]);
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(() => { loadEmails(); }, [selected, activeFolder]);
-
-  // WebSocket connection for real-time email updates
+  // 切换账号或文件夹时自动加载邮件
   useEffect(() => {
-    let ws: WebSocket | null = null;
-    let reconnectTimeout: NodeJS.Timeout | null = null;
-
-    function connect() {
-      try {
-        ws = new WebSocket('ws://localhost:3001');
-
-        ws.onopen = () => {
-          console.log('[WS] Connected to worker');
-        };
-
-        ws.onmessage = (event) => {
-          try {
-            const data = JSON.parse(event.data);
-            if (data.type === 'new_email') {
-              console.log('[WS] New email received:', data.email.subject);
-              // Refresh email list
-              loadEmails();
-            }
-          } catch (e) {
-            console.error('[WS] Failed to parse message:', e);
-          }
-        };
-
-        ws.onclose = () => {
-          console.log('[WS] Disconnected, reconnecting in 5s...');
-          reconnectTimeout = setTimeout(connect, 5000);
-        };
-
-        ws.onerror = () => {
-          // Will trigger onclose
-        };
-      } catch (e) {
-        console.error('[WS] Connection failed:', e);
-        reconnectTimeout = setTimeout(connect, 5000);
-      }
-    }
-
-    connect();
-
-    return () => {
-      if (reconnectTimeout) clearTimeout(reconnectTimeout);
-      if (ws) ws.close();
-    };
+    loadEmails();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [selected, activeFolder]);
+
 
   function toggleMode(targetMode: boolean) {
     setIsDark(targetMode);
@@ -421,7 +477,15 @@ export default function Dashboard() {
 
   async function sync() {
     setSyncing(true);
-    await fetch('/api/sync/', { method: 'POST', body: JSON.stringify({ accountId: selected }), headers: { 'Content-Type': 'application/json' } });
+
+    // 如果选中了特定账号（非 'all'）且 WebSocket 已连接，通过 Worker 同步（复用现有 IMAP 连接，毫秒级）
+    if (selected && selected !== 'all' && ws && ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({ type: 'sync', accountId: selected }));
+      // syncing 状态会在收到 sync_result 消息时关闭
+      return;
+    }
+
+    // Fallback: 刷新邮件列表
     await loadEmails();
     setSyncing(false);
   }
@@ -455,7 +519,7 @@ export default function Dashboard() {
         const d = await r.json();
         setSendError(d.error || '发送失败，请重试');
       }
-    } catch (e) {
+    } catch {
       setSendError('网络错误，无法发送');
     }
     setSending(false);
@@ -490,15 +554,191 @@ export default function Dashboard() {
       body: JSON.stringify({ messageId: emailId, archived: archive })
     });
     if (r.ok) {
+      const result = await r.json();
+
+      // 通过 WebSocket 同步到 IMAP
+      if (ws && ws.readyState === WebSocket.OPEN && result.uid && result.accountId) {
+        ws.send(JSON.stringify({
+          type: 'archive',
+          accountId: result.accountId,
+          uid: result.uid,
+          archive: archive
+        }));
+        console.log('[WS] Sent archive:', result.uid, 'archive:', archive);
+      }
+
       // Close detail panel and refresh list
       setSelectedEmail(null);
       await loadEmails();
     }
   }
 
+  // Delete email
+  async function deleteEmail(emailId: string) {
+    if (!confirm('确定要永久删除这封邮件吗？此操作不可撤销。')) {
+      return;
+    }
+
+    const r = await fetch(`/api/messages/${emailId}/`, {
+      method: 'DELETE'
+    });
+    if (r.ok) {
+      const result = await r.json();
+
+      // 通过 WebSocket 同步到 IMAP
+      if (ws && ws.readyState === WebSocket.OPEN && result.uid && result.accountId) {
+        ws.send(JSON.stringify({
+          type: 'delete',
+          accountId: result.accountId,
+          uid: result.uid
+        }));
+        console.log('[WS] Sent delete:', result.uid);
+      }
+
+      // Close detail panel and refresh list
+      setSelectedEmail(null);
+      await loadEmails();
+
+      // 显示成功 Toast
+      setToastMessage('🗑️ 邮件已删除');
+      setShowToast(true);
+      setTimeout(() => setShowToast(false), 3000);
+    }
+  }
+
   const transitionBase = { duration: 0.15, ease: [0.2, 0.8, 0.2, 1] };
   const transitionModal = { duration: 0.18, ease: [0.2, 0.8, 0.2, 1] };
   const getPreview = (e: Email) => e.snippet || "No preview available for this message...";
+
+  // 多选操作函数
+  function toggleSelect(id: string, checked: boolean) {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (checked) next.add(id);
+      else next.delete(id);
+      return next;
+    });
+  }
+
+  function clearSelection() {
+    setSelectedIds(new Set());
+  }
+
+  async function batchMarkRead() {
+    const ids = Array.from(selectedIds);
+    const total = ids.length;
+    setBatchProgress({ current: 0, total });
+
+    let successCount = 0;
+    for (let i = 0; i < ids.length; i++) {
+      const id = ids[i];
+      try {
+        const r = await fetch(`/api/messages/${id}/seen/`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ seen: true })
+        });
+        if (r.ok) {
+          const result = await r.json();
+          successCount++;
+          // 同步到 IMAP
+          if (ws && ws.readyState === WebSocket.OPEN && result.uid && result.accountId) {
+            ws.send(JSON.stringify({ type: 'markSeen', accountId: result.accountId, uid: result.uid }));
+          }
+        }
+        setBatchProgress({ current: i + 1, total });
+      } catch (e) {
+        console.error('Batch mark read failed:', id, e);
+      }
+    }
+
+    setBatchProgress(null);
+    clearSelection();
+    await loadEmails();
+
+    // 显示成功 Toast
+    setToastMessage(`✅ 已标记 ${successCount} 封邮件为已读`);
+    setShowToast(true);
+    setTimeout(() => setShowToast(false), 3000);
+  }
+
+  async function batchArchive() {
+    const ids = Array.from(selectedIds);
+    const total = ids.length;
+    setBatchProgress({ current: 0, total });
+
+    let successCount = 0;
+    for (let i = 0; i < ids.length; i++) {
+      const id = ids[i];
+      try {
+        const r = await fetch('/api/actions/archive/', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ messageId: id, archived: true })
+        });
+        if (r.ok) {
+          const result = await r.json();
+          successCount++;
+          // 同步到 IMAP
+          if (ws && ws.readyState === WebSocket.OPEN && result.uid && result.accountId) {
+            ws.send(JSON.stringify({ type: 'archive', accountId: result.accountId, uid: result.uid, archive: true }));
+          }
+        }
+        setBatchProgress({ current: i + 1, total });
+      } catch (e) {
+        console.error('Batch archive failed:', id, e);
+      }
+    }
+
+    setBatchProgress(null);
+    clearSelection();
+    await loadEmails();
+
+    // 显示成功 Toast
+    setToastMessage(`📦 已归档 ${successCount} 封邮件`);
+    setShowToast(true);
+    setTimeout(() => setShowToast(false), 3000);
+  }
+
+  async function batchDelete() {
+    if (!confirm(`确定要永久删除 ${selectedIds.size} 封邮件吗？此操作不可撤销。`)) {
+      return;
+    }
+
+    const ids = Array.from(selectedIds);
+    const total = ids.length;
+    setBatchProgress({ current: 0, total });
+
+    let successCount = 0;
+    for (let i = 0; i < ids.length; i++) {
+      const id = ids[i];
+      try {
+        const r = await fetch(`/api/messages/${id}/`, {
+          method: 'DELETE'
+        });
+        if (r.ok) {
+          const result = await r.json();
+          successCount++;
+          // 同步到 IMAP
+          if (ws && ws.readyState === WebSocket.OPEN && result.uid && result.accountId) {
+            ws.send(JSON.stringify({ type: 'delete', accountId: result.accountId, uid: result.uid }));
+          }
+        }
+        setBatchProgress({ current: i + 1, total });
+      } catch (e) {
+        console.error('Batch delete failed:', id, e);
+      }
+    }
+
+    setBatchProgress(null);
+    clearSelection();
+    await loadEmails();
+
+    // 显示成功 Toast
+    setToastMessage(`🗑️ 已删除 ${successCount} 封邮件`);
+    setShowToast(true);
+    setTimeout(() => setShowToast(false), 3000);
+  }
 
   return (
     <div className="app-shell">
@@ -675,6 +915,70 @@ export default function Dashboard() {
 
         {/* Message List */}
         <div style={{ flex: 1, overflowY: 'auto', padding: '24px 32px', scrollbarWidth: 'thin', scrollbarColor: 'var(--stroke-2) transparent' }}>
+          {/* 批量操作栏 */}
+          {(selectedIds.size > 0 || batchProgress) && (
+            <motion.div
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              className="glass"
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 12,
+                padding: '10px 16px',
+                marginBottom: 16,
+                borderRadius: 10,
+              }}
+            >
+              {batchProgress ? (
+                <>
+                  <div style={{
+                    width: 16, height: 16, border: '2px solid var(--accent)',
+                    borderTopColor: 'transparent', borderRadius: '50%',
+                    animation: 'spin 1s linear infinite'
+                  }} />
+                  <span style={{ fontSize: 13, color: 'var(--text-2)', fontWeight: 500 }}>
+                    处理中... {batchProgress.current}/{batchProgress.total}
+                  </span>
+                  <div style={{
+                    flex: 1, height: 4, background: 'var(--surface-2)', borderRadius: 2, overflow: 'hidden',
+                    maxWidth: 200
+                  }}>
+                    <motion.div
+                      style={{
+                        height: '100%', background: 'var(--accent)', borderRadius: 2
+                      }}
+                      initial={{ width: 0 }}
+                      animate={{ width: `${(batchProgress.current / batchProgress.total) * 100}%` }}
+                      transition={{ duration: 0.2 }}
+                    />
+                  </div>
+                </>
+              ) : (
+                <>
+                  <span style={{ fontSize: 13, color: 'var(--text-2)', fontWeight: 500 }}>
+                    已选择 {selectedIds.size} 封邮件
+                  </span>
+                  <button onClick={batchMarkRead} className="btn-secondary" style={{ padding: '6px 12px', fontSize: 12 }}>
+                    <Check size={12} />
+                    标记已读
+                  </button>
+                  <button onClick={batchArchive} className="btn-secondary" style={{ padding: '6px 12px', fontSize: 12 }}>
+                    <Archive size={12} />
+                    批量归档
+                  </button>
+                  <button onClick={batchDelete} className="btn-secondary" style={{ padding: '6px 12px', fontSize: 12, color: '#ef4444' }}>
+                    <Trash2 size={12} />
+                    批量删除
+                  </button>
+                  <button onClick={clearSelection} className="glass-button" style={{ padding: '6px 12px', fontSize: 12 }}>
+                    取消选择
+                  </button>
+                </>
+              )}
+            </motion.div>
+          )}
           {loading && <div style={{ textAlign: 'center', padding: 60, color: 'var(--text-3)' }}>加载邮件中...</div>}
           {!loading && emails.length === 0 && (
             <div style={{ textAlign: 'center', padding: 100, color: 'var(--text-3)' }}>
@@ -701,6 +1005,20 @@ export default function Dashboard() {
               className={`message-row ${e.unread ? 'unread' : ''} ${selectedEmail?.id === e.id ? 'selected' : ''}`}
               style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '14px 20px', marginBottom: 10, cursor: 'pointer', position: 'relative', overflow: 'hidden' }}
             >
+              {/* 多选框 */}
+              <input
+                type="checkbox"
+                checked={selectedIds.has(e.id)}
+                onClick={(ev) => ev.stopPropagation()}
+                onChange={(ev) => toggleSelect(e.id, ev.target.checked)}
+                style={{
+                  width: 16,
+                  height: 16,
+                  accentColor: 'var(--accent)',
+                  cursor: 'pointer',
+                  flexShrink: 0,
+                }}
+              />
               {e.unread && <div className="unread-indicator" style={{ position: 'absolute', left: 0, top: 12, bottom: 12, borderTopRightRadius: 3, borderBottomRightRadius: 3 }} />}
               <div style={{ width: 40, height: 40, borderRadius: '50%', background: getColor(e.from), display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 15, fontWeight: 600, color: '#fff', flexShrink: 0, boxShadow: '0 2px 8px rgba(0,0,0,0.15)', marginLeft: e.unread ? 6 : 0 }}>
                 {e.from?.[0]?.toUpperCase()}
@@ -764,7 +1082,15 @@ export default function Dashboard() {
               >
                 <ArrowLeft size={18} />
               </button>
-              <span style={{ fontWeight: 600, fontSize: 15, color: 'var(--text-1)' }}>邮件详情</span>
+              <span style={{ fontWeight: 600, fontSize: 15, color: 'var(--text-1)', flex: 1 }}>邮件详情</span>
+              <button
+                onClick={() => deleteEmail(selectedEmail.id)}
+                className="glass-button"
+                style={{ width: 36, height: 36, borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#ef4444' }}
+                title="删除邮件"
+              >
+                <Trash2 size={18} />
+              </button>
             </div>
 
             {/* Email Content */}
@@ -842,7 +1168,20 @@ export default function Dashboard() {
                             }
                             a { color: #0066cc; text-decoration: none; }
                             a:hover { text-decoration: underline; }
-                            img { max-width: 100%; height: auto; }
+                            img { 
+                              max-width: 100%; 
+                              height: auto;
+                              /* 图片懒加载优化 */
+                              content-visibility: auto;
+                              contain-intrinsic-size: 200px;
+                            }
+                            img[data-lazy-src] {
+                              opacity: 0;
+                              transition: opacity 0.3s ease;
+                            }
+                            img[data-lazy-src].loaded {
+                              opacity: 1;
+                            }
                             blockquote, .gmail_quote {
                               margin: 8px 0;
                               padding: 0 0 0 10px;
@@ -860,6 +1199,30 @@ export default function Dashboard() {
                             td, th { padding: 6px 8px; border: 1px solid #ddd; }
                             p { margin: 0 0 8px 0; }
                           </style>
+                          <script>
+                            // 图片懒加载：使用 Intersection Observer
+                            document.addEventListener('DOMContentLoaded', function() {
+                              const images = document.querySelectorAll('img');
+                              if ('IntersectionObserver' in window) {
+                                const observer = new IntersectionObserver((entries) => {
+                                  entries.forEach(entry => {
+                                    if (entry.isIntersecting) {
+                                      const img = entry.target;
+                                      img.classList.add('loaded');
+                                      observer.unobserve(img);
+                                    }
+                                  });
+                                }, { rootMargin: '50px' });
+                                images.forEach(img => {
+                                  img.loading = 'lazy';
+                                  observer.observe(img);
+                                });
+                              } else {
+                                // 降级处理
+                                images.forEach(img => img.classList.add('loaded'));
+                              }
+                            });
+                          <\/script>
                         </head>
                         <body>${selectedEmail.content}</body>
                       </html>
@@ -1086,7 +1449,7 @@ export default function Dashboard() {
             <div style={{ width: 20, height: 20, borderRadius: '50%', background: 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <Check size={12} color="#fff" />
             </div>
-            <span style={{ fontSize: 14, fontWeight: 500, color: 'var(--text-1)' }}>邮件发送成功</span>
+            <span style={{ fontSize: 14, fontWeight: 500, color: 'var(--text-1)' }}>{toastMessage || '操作成功'}</span>
           </motion.div>
         )}
       </AnimatePresence>
