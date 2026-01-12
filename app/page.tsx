@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Mail, RefreshCw, Send, Inbox, Archive, Settings, FileText, X, Moon, Sun, Check, ArrowLeft, Layers, Trash2 } from 'lucide-react';
+import { Mail, Send, Inbox, Archive, Settings, FileText, X, Moon, Sun, Check, ArrowLeft, Layers, Trash2, Wifi, WifiOff, RefreshCw } from 'lucide-react';
 
 // 强调色定义
 const ACCENT_COLORS = [
@@ -85,6 +85,23 @@ export default function Dashboard() {
   // WebSocket 连接用于接收实时更新和同步结果
   const [ws, setWs] = useState<WebSocket | null>(null);
 
+  // P7: 连接状态跟踪
+  type ConnectionStatus = 'connected' | 'disconnected' | 'reconnecting';
+  const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>('disconnected');
+  const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(null);
+
+  // P7: 节流刷新，避免消息风暴
+  const lastRefreshRef = useRef<number>(0);
+  const REFRESH_THROTTLE = 4000; // 4 秒节流
+
+  // P7: 轮询引用（仿照 Roundcube，始终运行）
+  const pollingTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const POLLING_INTERVAL = 30000; // 30 秒
+
+  // P7: 跟踪当前选中账号，用于 WebSocket 事件处理
+  const selectedRef = useRef<string | null>(selected);
+  useEffect(() => { selectedRef.current = selected; }, [selected]);
+
   // Auto-save Debounce Effect
   useEffect(() => {
     if (!compose) return;
@@ -137,8 +154,37 @@ export default function Dashboard() {
     }
   }, [compose]);
 
-  // WebSocket 连接：接收实时邮件更新和同步结果
-  // WebSocket connection: new mail push + sync results with auto-reconnect
+  // P7: 节流刷新函数
+  const throttledRefresh = useCallback(() => {
+    const now = Date.now();
+    if (now - lastRefreshRef.current > REFRESH_THROTTLE) {
+      lastRefreshRef.current = now;
+      loadEmails();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // P7: 启动轮询（仿照 Roundcube，始终运行，不仅离线时）
+  const startPolling = useCallback(() => {
+    if (pollingTimerRef.current) return;
+    console.log('[P7] Starting auto-refresh polling (Roundcube style)...');
+    pollingTimerRef.current = setInterval(() => {
+      console.log('[P7] Auto-refresh polling...');
+      loadEmails();
+    }, POLLING_INTERVAL);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // P7: 停止离线轮询
+  const stopPolling = useCallback(() => {
+    if (pollingTimerRef.current) {
+      console.log('[P7] Stopping offline polling');
+      clearInterval(pollingTimerRef.current);
+      pollingTimerRef.current = null;
+    }
+  }, []);
+
+  // WebSocket 连接：new mail push + sync results with auto-reconnect
   useEffect(() => {
     let socket: WebSocket | null = null;
     let reconnectTimer: NodeJS.Timeout | null = null;
@@ -155,17 +201,42 @@ export default function Dashboard() {
 
         socket.onopen = () => {
           console.log('[WS] Connected to worker');
+          setConnectionStatus('connected');
+          // P7: 连接成功后也保持轮询（仿照 Roundcube）
+          startPolling();
         };
 
         socket.onmessage = (event) => {
           try {
             const data = JSON.parse(event.data);
+
+            // P7: 处理连接状态事件
+            if (data.type === 'connection_state') {
+              console.log('[P7] Connection state:', data.state);
+              // 这里可以扩展为每个账号的连接状态
+            }
+
+            // P7: 处理同步进度事件
+            if (data.type === 'sync_progress') {
+              console.log('[P7] Sync progress:', data);
+              setLastSyncedAt(data.lastSyncedAt);
+              setSyncing(false);
+              const targetAccount = data.accountId || data.email;
+              // P7: 只有当同步的账号是当前选中账号或 scope=all 时才刷新
+              if (data.syncedCount > 0 && (selectedRef.current === 'all' || selectedRef.current === targetAccount)) {
+                throttledRefresh();
+              }
+            }
+
             if (data.type === 'new_email') {
-              loadEmails();
+              // P7: 只有当新邮件属于当前选中账号或 scope=all 时才刷新
+              const targetAccount = data.accountId || data.email;
+              if (selectedRef.current === 'all' || selectedRef.current === targetAccount) {
+                throttledRefresh();
+              }
             } else if (data.type === 'sync_result') {
               console.log('[WS] Sync result:', data);
               setSyncing(false);
-              loadEmails();
             }
           } catch (e) {
             console.error('[WS] Parse error:', e);
@@ -180,10 +251,15 @@ export default function Dashboard() {
           console.log('[WS] Disconnected, reconnecting in 5s...');
           setWs(null);
           setSyncing(false);
+          setConnectionStatus('disconnected');
+          // P7: 启动离线轮询
+          startPolling();
           reconnectTimer = setTimeout(connect, 5000);
         };
       } catch (e) {
         console.error('[WS] Connection failed:', e);
+        setConnectionStatus('disconnected');
+        startPolling();
         reconnectTimer = setTimeout(connect, 5000);
       }
     };
@@ -192,9 +268,10 @@ export default function Dashboard() {
 
     return () => {
       if (reconnectTimer) clearTimeout(reconnectTimer);
+      stopPolling();
       socket?.close();
     };
-  }, []);
+  }, [throttledRefresh, startPolling, stopPolling]);
 
   // Folder Navigation
   type FolderType = 'inbox' | 'sent' | 'drafts' | 'archive';
@@ -332,10 +409,15 @@ export default function Dashboard() {
   // Define functions BEFORE useEffect
   async function loadEmails() {
     setLoading(true);
+    // 记录本次刷新时间，避免后续事件在短时间内重复刷新
+    lastRefreshRef.current = Date.now();
+
+    // P7: 使用 ref 获取最新的 selected 值，避免闭包问题
+    const currentSelected = selectedRef.current;
 
     // Drafts use a different API endpoint
     if (activeFolder === 'drafts') {
-      const r = await fetch(selected && selected !== 'all' ? `/api/drafts/?scope=account&accountId=${selected}` : '/api/drafts/?scope=all');
+      const r = await fetch(currentSelected && currentSelected !== 'all' ? `/api/drafts/?scope=account&accountId=${currentSelected}` : '/api/drafts/?scope=all');
       if (r.ok) {
         const data = await r.json();
         const enhanced = data.items?.map((d: { id: string; to?: string; subject?: string; updatedAt?: string; preview?: string; account?: { name?: string; tag?: string } }) => ({
@@ -358,10 +440,10 @@ export default function Dashboard() {
 
     // For inbox/sent/archive, use the new messages API
     let url = `/api/messages/?folderType=${activeFolder}&limit=50`;
-    if (selected === 'all' || !selected) {
+    if (currentSelected === 'all' || !currentSelected) {
       url += `&scope=all`;
     } else {
-      url += `&scope=account&accountId=${selected}`;
+      url += `&scope=account&accountId=${currentSelected}`;
     }
 
     const r = await fetch(url);
@@ -456,9 +538,20 @@ export default function Dashboard() {
     document.documentElement.style.setProperty('--accent', accent);
   }, [accent]);
 
-  // 切换账号或文件夹时自动加载邮件
+  // 切换账号或文件夹时自动加载邮件 + 触发 Worker 同步
   useEffect(() => {
     loadEmails();
+
+    // P7: 切换账号时触发 Worker 同步，确保获取最新邮件（仿照 Roundcube 的"主动请求"模式）
+    if (selected && selected !== 'all' && ws && ws.readyState === WebSocket.OPEN) {
+      // 延迟 500ms 触发同步，避免与 loadEmails 冲突
+      const syncTimer = setTimeout(() => {
+        setSyncing(true);
+        ws.send(JSON.stringify({ type: 'sync', accountId: selected }));
+        console.log('[P7] Triggered sync on account switch:', selected);
+      }, 500);
+      return () => clearTimeout(syncTimer);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selected, activeFolder]);
 
@@ -473,21 +566,6 @@ export default function Dashboard() {
   function changeAccent(color: string) {
     setAccent(color);
     localStorage.setItem('theme-accent', color);
-  }
-
-  async function sync() {
-    setSyncing(true);
-
-    // 如果选中了特定账号（非 'all'）且 WebSocket 已连接，通过 Worker 同步（复用现有 IMAP 连接，毫秒级）
-    if (selected && selected !== 'all' && ws && ws.readyState === WebSocket.OPEN) {
-      ws.send(JSON.stringify({ type: 'sync', accountId: selected }));
-      // syncing 状态会在收到 sync_result 消息时关闭
-      return;
-    }
-
-    // Fallback: 刷新邮件列表
-    await loadEmails();
-    setSyncing(false);
   }
 
   async function sendEmail() {
@@ -513,8 +591,21 @@ export default function Dashboard() {
         await loadEmails(); // Refresh list to remove draft or show sent email
         setForm({ from: '', to: '', subject: '', content: '' });
         // Show success toast
+        setToastMessage('✅ 邮件已发送');
         setShowToast(true);
         setTimeout(() => setShowToast(false), 3000);
+
+        // P7: 发送成功后，检查接收方是否是系统内账号，如果是则触发同步
+        const recipientEmail = form.to.trim().toLowerCase();
+        const recipientAccount = accounts.find(a => a.email.toLowerCase() === recipientEmail);
+        if (recipientAccount && ws && ws.readyState === WebSocket.OPEN) {
+          // 延迟 2 秒后触发接收方同步，给邮件服务器处理时间
+          setTimeout(() => {
+            setSyncing(true);
+            ws.send(JSON.stringify({ type: 'sync', accountId: recipientAccount.id }));
+            console.log('[P7] Triggered sync for recipient:', recipientEmail);
+          }, 2000);
+        }
       } else {
         const d = await r.json();
         setSendError(d.error || '发送失败，请重试');
@@ -891,11 +982,31 @@ export default function Dashboard() {
               </span>
             )}
           </div>
-          <div style={{ display: 'flex', gap: 12 }}>
-            <button onClick={sync} disabled={syncing} className="btn-secondary">
-              <RefreshCw size={14} className={syncing ? 'animate-spin' : ''} />
-              同步
-            </button>
+          <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+            {/* P7: 连接状态指示器 */}
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 6,
+                padding: '6px 12px',
+                borderRadius: 20,
+                background: connectionStatus === 'connected' ? 'rgba(16, 185, 129, 0.1)' : connectionStatus === 'reconnecting' ? 'rgba(245, 158, 11, 0.1)' : 'rgba(239, 68, 68, 0.1)',
+                border: `1px solid ${connectionStatus === 'connected' ? 'rgba(16, 185, 129, 0.3)' : connectionStatus === 'reconnecting' ? 'rgba(245, 158, 11, 0.3)' : 'rgba(239, 68, 68, 0.3)'}`,
+                fontSize: 12,
+                color: connectionStatus === 'connected' ? '#10b981' : connectionStatus === 'reconnecting' ? '#f59e0b' : '#ef4444'
+              }}
+              title={lastSyncedAt ? `上次同步: ${new Date(lastSyncedAt).toLocaleTimeString()}` : '尚未同步'}
+            >
+              {connectionStatus === 'connected' ? (
+                <><Wifi size={14} /> 在线</>
+              ) : connectionStatus === 'reconnecting' ? (
+                <><RefreshCw size={14} className="animate-spin" /> 重连中</>
+              ) : (
+                <><WifiOff size={14} /> 离线</>
+              )}
+              {syncing && <RefreshCw size={12} className="animate-spin" style={{ marginLeft: 4 }} />}
+            </div>
             <button
               onClick={() => {
                 setCompose(true);

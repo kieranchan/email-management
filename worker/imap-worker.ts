@@ -81,6 +81,9 @@ async function parseEmailContent(source: Buffer): Promise<string> {
     }
 }
 
+// Connection state type for P7 zero-touch sync
+type ConnectionState = 'connected' | 'disconnected' | 'reconnecting';
+
 // Manage IMAP connection for a single account
 class AccountWatcher {
     private client: ImapFlow | null = null;
@@ -88,8 +91,51 @@ class AccountWatcher {
     private running = false;
     private reconnectTimeout: NodeJS.Timeout | null = null;
 
+    // P7: Connection state tracking
+    private connectionState: ConnectionState = 'disconnected';
+    private lastSyncedAt: Date | null = null;
+    private lastUid: number = 0;
+
     constructor(account: Account) {
         this.account = account;
+    }
+
+    // P7: Get current connection state
+    getConnectionState(): ConnectionState {
+        return this.connectionState;
+    }
+
+    // P7: Get account email
+    getAccountEmail(): string {
+        return this.account.email;
+    }
+
+    // P7: Get last sync timestamp
+    getLastSyncedAt(): Date | null {
+        return this.lastSyncedAt;
+    }
+
+    // P7: Broadcast connection state change
+    private broadcastConnectionState(state: ConnectionState) {
+        this.connectionState = state;
+        broadcast({
+            type: 'connection_state',
+            accountId: this.account.id,
+            email: this.account.email,
+            state
+        });
+    }
+
+    // P7: Broadcast sync progress
+    private broadcastSyncProgress(syncedCount: number) {
+        this.lastSyncedAt = new Date();
+        broadcast({
+            type: 'sync_progress',
+            accountId: this.account.id,
+            email: this.account.email,
+            syncedCount,
+            lastSyncedAt: this.lastSyncedAt.toISOString()
+        });
     }
 
     async start() {
@@ -141,23 +187,35 @@ class AccountWatcher {
             await this.client.connect();
             console.log(`[IMAP] Connected to ${this.account.email}`);
 
+            // P7: Broadcast connected state
+            this.broadcastConnectionState('connected');
+
             // Listen for new emails to break IDLE
             this.client.on('exists', () => {
                 // If we are idling, stop it so we can fetch
                 this.client?.idleLogout?.();
             });
 
+            // P7: Auto-sync on connect/reconnect to catch up
+            const syncResult = await this.manualSync();
+            if (!syncResult.success) {
+                console.warn(`[IMAP] Auto-sync on connect failed for ${this.account.email}:`, syncResult.error);
+            }
+
             // Start IDLE loop
             await this.idleLoop();
         } catch (err: unknown) {
             const message = err instanceof Error ? err.message : String(err);
             console.error(`[IMAP] Failed to connect ${this.account.email}:`, message);
+            this.broadcastConnectionState('disconnected');
             this.scheduleReconnect();
         }
     }
 
     private scheduleReconnect() {
         if (!this.running) return;
+        // P7: Broadcast reconnecting state
+        this.broadcastConnectionState('reconnecting');
         console.log(`[IMAP] Reconnecting ${this.account.email} in 30s...`);
         this.reconnectTimeout = setTimeout(() => this.connect(), 30000);
     }
@@ -286,11 +344,11 @@ class AccountWatcher {
             });
             const lastUid = lastEmail?.uid || 0;
 
-            // IMAP UID SEARCH
-            const lock = await this.client.getMailboxLock('INBOX');
-            let synced = 0;
+                // IMAP UID SEARCH
+                const lock = await this.client.getMailboxLock('INBOX');
+                let synced = 0;
 
-            try {
+                try {
                 const messages = this.client.fetch(`${lastUid + 1}:*`, {
                     envelope: true,
                     internalDate: true,
@@ -337,6 +395,8 @@ class AccountWatcher {
                 lock.release();
             }
 
+            this.lastSyncedAt = new Date();
+            this.broadcastSyncProgress(synced);
             console.log(`[IMAP] Manual sync ${this.account.email}: ${synced} new emails`);
             return { success: true, synced };
         } catch (err: unknown) {
@@ -478,6 +538,11 @@ class AccountWatcher {
 class ImapWorker {
     private watchers: Map<string, AccountWatcher> = new Map();
 
+    // P7: Fallback sync timer (1 minute - reduced for faster detection when IDLE doesn't push)
+    private fallbackTimer: NodeJS.Timeout | null = null;
+    private readonly FALLBACK_INTERVAL = 1 * 60 * 1000; // 1 minute
+    private readonly STALE_THRESHOLD = 2 * 60 * 1000; // 2 minutes
+
     async start() {
         console.log('[Worker] Starting IMAP IDLE worker...');
         console.log('[WS] WebSocket server listening on port 3001');
@@ -493,6 +558,9 @@ class ImapWorker {
             watcher.start();
         }
 
+        // P7: Start fallback sync timer
+        this.startFallbackTimer();
+
         // Handle graceful shutdown
         process.on('SIGINT', () => this.stop());
         process.on('SIGTERM', () => this.stop());
@@ -500,6 +568,10 @@ class ImapWorker {
 
     async stop() {
         console.log('[Worker] Shutting down...');
+        // P7: Clear fallback timer
+        if (this.fallbackTimer) {
+            clearInterval(this.fallbackTimer);
+        }
         for (const watcher of this.watchers.values()) {
             await watcher.stop();
         }
@@ -508,14 +580,50 @@ class ImapWorker {
         process.exit(0);
     }
 
+    // P7: Fallback sync for stale connections
+    private startFallbackTimer() {
+        this.fallbackTimer = setInterval(async () => {
+            console.log('[Worker] Running fallback sync check...');
+            const now = Date.now();
+
+            for (const [accountId, watcher] of this.watchers.entries()) {
+                const lastSync = watcher.getLastSyncedAt();
+                const isStale = !lastSync || (now - lastSync.getTime()) > this.STALE_THRESHOLD;
+
+                if (isStale && watcher.getConnectionState() === 'connected') {
+                    console.log(`[Worker] Fallback sync for stale account: ${accountId}`);
+                    try {
+                        await watcher.manualSync();
+                    } catch (e) {
+                        console.error(`[Worker] Fallback sync failed for ${accountId}:`, e);
+                    }
+                }
+            }
+        }, this.FALLBACK_INTERVAL);
+    }
+
+    // P7: Get all account connection states (for health check API)
+    getConnectionStates(): { accountId: string; email: string; state: ConnectionState; lastSyncedAt: string | null }[] {
+        const states: { accountId: string; email: string; state: ConnectionState; lastSyncedAt: string | null }[] = [];
+        for (const [accountId, watcher] of this.watchers.entries()) {
+            states.push({
+                accountId,
+                email: watcher.getAccountEmail(),
+                state: watcher.getConnectionState(),
+                lastSyncedAt: watcher.getLastSyncedAt()?.toISOString() || null
+            });
+        }
+        return states;
+    }
+
     // 手动同步单个账号（通过 WebSocket 调用）
-    async syncAccount(accountId: string): Promise<{ success: boolean; email?: string; synced?: number; error?: string }> {
+    async syncAccount(accountId: string): Promise<{ success: boolean; accountId: string; email?: string; synced?: number; error?: string }> {
         const watcher = this.watchers.get(accountId);
         if (!watcher) {
-            return { success: false, error: 'Account not found or not connected' };
+            return { success: false, accountId, error: 'Account not found or not connected' };
         }
         const result = await watcher.manualSync();
-        return { ...result, email: accountId };
+        return { ...result, accountId, email: watcher.getAccountEmail() };
     }
 
     // 标记已读（通过 WebSocket 调用）

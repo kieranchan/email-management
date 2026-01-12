@@ -501,3 +501,172 @@ if (!accountId || accountId === 'all') {
 - `app/api/sync/route.ts`
 - `app/api/messages/[id]/route.ts`
 - `~/.ssh/config`
+
+---
+
+## 🐛 Bug #12: P7 发送邮件后接收方不自动刷新
+
+### 问题描述
+
+从 atlas 账号发送邮件给 omega 账号后，omega 账号不会自动刷新收到新邮件。用户需要手动切换账号或等待很长时间才能看到新邮件。
+
+### 问题原因
+
+1. **IMAP IDLE 局限**：IMAP IDLE 依赖服务器主动推送 EXISTS 事件，但很多邮件服务器不会立即推送。
+2. **Worker 兜底间隔过长**：原设置为 5 分钟检查一次，响应太慢。
+3. **前端只在离线时轮询**：原设计只有 WebSocket 断开时才启用轮询。
+
+### 解决方案
+
+1. **发送后主动触发同步**：发送邮件成功后，检查接收方是否是系统内账号，如果是则 2 秒后通过 WebSocket 触发接收方同步。
+2. **缩短 Worker 兜底间隔**：从 5 分钟改为 1 分钟，stale threshold 从 10 分钟改为 2 分钟。
+3. **仿照 Roundcube 始终轮询**：前端每 30 秒轮询一次，无论 WebSocket 是否连接。
+4. **切换账号时触发同步**：用户切换账号时自动触发该账号的 Worker 同步。
+
+### 相关文件
+
+- `app/page.tsx` - `sendEmail` 函数、账号切换逻辑
+- `worker/imap-worker.ts` - `FALLBACK_INTERVAL`、`STALE_THRESHOLD`
+
+---
+
+## 🐛 Bug #13: P7 WebSocket 事件触发错误账号刷新
+
+### 问题描述
+
+切换账号后，邮件列表会短暂显示正确的账号邮件，然后突然变成之前账号（如 omega）的邮件。
+
+### 问题原因
+
+1. **闭包问题**：`throttledRefresh` 和 `startPolling` 使用 `useCallback` 时依赖数组为空 `[]`，导致内部调用的 `loadEmails` 是初始创建时捕获的版本。
+2. **无账号匹配检查**：`sync_result`、`sync_progress`、`new_email` 事件处理时直接触发 `loadEmails()`，没有检查事件中的 `accountId` 是否匹配当前选中账号。
+
+### 解决方案
+
+1. **添加 `selectedRef`**：使用 `useRef` 跟踪当前选中账号，实时更新。
+2. **`loadEmails` 使用 ref**：从 `selectedRef.current` 获取最新账号值，避免闭包中的旧值。
+3. **事件处理增加账号匹配**：只有当 `selectedRef.current === 'all'` 或 `selectedRef.current === data.accountId` 时才触发刷新。
+
+```typescript
+// P7: 跟踪当前选中账号
+const selectedRef = useRef<string | null>(selected);
+useEffect(() => { selectedRef.current = selected; }, [selected]);
+
+// loadEmails 使用 ref
+async function loadEmails() {
+  const currentSelected = selectedRef.current;
+  // ...使用 currentSelected 而不是 selected
+}
+
+// 事件处理检查账号匹配
+if (data.type === 'sync_result') {
+  if (selectedRef.current === 'all' || selectedRef.current === data.accountId) {
+    throttledRefresh();
+  }
+}
+```
+
+### 相关文件
+
+- `app/page.tsx`
+
+---
+
+## 🐛 Bug #14: 外部邮件（如 Gmail）无法投递到系统账号
+
+### 问题描述
+
+使用 Gmail 或其他外部邮箱发送邮件到 `@oragenode.online` 账号时，邮件无法送达且服务器日志中完全没有连接记录。但系统内账号互发正常。
+
+### 问题原因
+
+**DNS 记录路由冲突**。
+
+1. `MX` 记录指向了 `mail.oragenode.online`。
+2. 而 `mail.oragenode.online` 的 `A` 记录指向的是**日本 VPS（13.192.46.187）**，用于网页访问加速。
+3. 日本 VPS 只作为 Caddy 反向代理，没有处理 25 端口（SMTP）的邮件服务。
+4. 导致外部邮件服务器（如 Gmail）将邮件投递到了错误的 IP。
+
+### 解决方案
+
+**分离 Web 流量与邮件流量的 DNS 路由**：
+
+1. **新建 A 记录**：`mx.oragenode.online` -> `66.154.127.152`（CloudCone 美国真实 IP）。
+2. **修改 MX 记录**：将 `@` 的 MX 记录值改为 `mx.oragenode.online`。
+3. **保留原 A 记录**：`mail.oragenode.online` 继续指向日本 VPS，用于 Admin Dashboard 的网页加速。
+
+### 修复后的架构
+
+- **网页访问**：`mail.oragenode.online` -> 日本代理 -> 美国服务器 (端口 443)
+- **邮件投递**：`mx.oragenode.online` -> 美国服务器 (端口 25)
+
+---
+
+## 🐛 Bug #15: P7 同步机制存在 4 个代码缺陷（Code Review 发现）
+
+### 问题描述
+
+经过外部 Code Review，发现 P7 无感知同步实现中存在以下 4 个问题：
+
+1. **`sync_result` 事件不携带 `accountId`**：Worker 返回 `email: accountId`，但前端检查的是 `data.accountId`，导致条件永远不匹配，UI 不刷新。
+2. **`manualSync()` 不更新 `lastSyncedAt`**：同步成功后没有更新时间戳，导致 fallback 检测永远认为账号是 stale，每分钟都触发一次无用的 fallback sync。
+3. **`getConnectionStates()` 中 `email` 字段错误**：填入的是 `accountId` 而不是真实邮箱地址。
+4. **`setSyncing(true)` 从未被调用**：移除 Sync 按钮后，UI 无法显示"同步中"状态。
+
+### 问题原因
+
+P7 功能实现时遗漏了部分边界条件和状态同步逻辑。
+
+### 解决方案
+
+1. **Finding 1**：修改 `syncAccount()` 返回值，添加 `accountId` 字段；前端同时匹配 `data.accountId` 和 `data.email`。
+2. **Finding 2**：在 `manualSync()` 成功后添加 `this.lastSyncedAt = new Date()` 和 `this.broadcastSyncProgress(synced)`。
+3. **Finding 3**：新增 `getAccountEmail()` 方法，在 `getConnectionStates()` 中调用。
+4. **Finding 4**：在切换账号和发送邮件触发同步前添加 `setSyncing(true)`。
+
+### 修复后的效果
+
+- 切换账号后 2-3 秒内 UI 自动刷新
+- 终端不再频繁出现 "Fallback sync for stale account" 日志
+- 同步状态指示器正常显示
+- Health API 返回正确的邮箱地址
+
+### 相关文件
+
+- `worker/imap-worker.ts` - 第 109-111, 398-399, 611, 620-626 行
+- `app/page.tsx` - 第 224, 233, 240, 552, 607 行
+
+---
+
+## 🐛 Bug #16: 切换账号时产生多余的重复 API 请求
+
+### 问题描述
+
+切换账号时，观察到 `/api/messages` 接口被调用了 3-4 次，而实际上只需要 1-2 次。这是因为多个刷新源同时触发：
+
+1. `loadEmails()` - 切换账号时立即调用
+2. `sync_progress` 事件触发 `throttledRefresh()`
+3. `sync_result` 事件也触发 `throttledRefresh()`
+4. 可能与 30 秒轮询时机重叠
+
+### 问题原因
+
+P7 实现时为了保证"不漏"，在多个地方都触发了刷新，但节流窗口（2 秒）不够长，导致多次请求穿透节流。
+
+### 解决方案
+
+1. **加强节流**：`REFRESH_THROTTLE` 从 2 秒提升到 **4 秒**。
+2. **统一刷新时间戳**：`loadEmails()` 入口处记录 `lastRefreshRef.current = Date.now()`，避免刚触发的手动加载立即被后续事件再触发。
+3. **统一刷新源**：`sync_result` 事件不再触发 `throttledRefresh()`，只负责 `setSyncing(false)`。刷新统一由 `sync_progress` 承担。
+
+### 修复后的效果
+
+切换账号时最多产生 **2 次请求**（首刷 + 同步完成），而不是之前的 3-4 次。
+
+### 相关文件
+
+- `app/page.tsx` - 第 95, 237-240, 413 行
+
+---
+
+*最后更新: 2026-01-12*
