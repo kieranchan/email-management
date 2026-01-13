@@ -860,3 +860,107 @@ useEffect(() => {
 
 **验证截图归档**：
 `C:\Users\86130\.gemini\antigravity\brain\722c108e-9140-4270-9f71-fece46376fd8\`
+
+---
+
+## M5: 安全区适配 + 键盘处理 + 体验优化 ✅
+
+### 2026-01-13 16:00 - 长按上下文菜单
+
+#### 新增文件
+
+**文件**: `app/hooks/useLongPress.ts`
+
+**内容**:
+
+- 检测长按手势的自定义 Hook
+- 延迟时间: 500ms
+- 移动阈值: 10px (超过取消长按)
+- 返回 `onTouchStart`, `onTouchEnd`, `onTouchMove` 事件处理器
+
+**文件**: `app/components/EmailContextMenu.tsx`
+
+**内容**:
+
+- 邮件长按上下文菜单组件
+- 显示快捷操作: 标记已读/未读、归档、删除
+- 自动调整位置避免超出屏幕
+- 点击外部自动关闭
+
+#### 修改文件
+
+**文件**: `app/components/MessageList.tsx`
+
+| 变更 | 说明 |
+|------|------|
+| 导入 `useLongPress` Hook | 第 6 行 |
+| 导入 `EmailContextMenu` 组件 | 第 7 行 |
+| 新增 Props | `markAsRead`, `markAsUnread`, `archiveSingle`, `deleteSingle` |
+| 新增状态 `contextMenu` | 存储当前显示菜单的邮件和位置 |
+| 集成长按功能 | 为每封邮件绑定长按事件处理器 |
+| 渲染上下文菜单 | 条件渲染 `<EmailContextMenu />` |
+
+**文件**: `app/page.tsx`
+
+| 变更 | 说明 |
+|------|------|
+| 新增函数 `markAsRead` | 第 916-936 行 |
+| 新增函数 `markAsUnread` | 第 938-958 行 |
+| 新增函数 `archiveSingle` | 第 960-969 行 |
+| 新增函数 `deleteSingle` | 第 971-978 行 |
+| 传递函数到 MessageList | 第 1027-1030 行 |
+
+---
+
+### 2026-01-13 16:00 - 性能优化
+
+#### 修改文件
+
+**文件**: `app/globals.css`
+
+| 位置 | 变更内容 |
+|------|----------|
+| 第 1654-1656 行 | 添加 `content-visibility: auto` 到 `.message-row` |
+| 第 1654-1656 行 | 添加 `contain-intrinsic-size: auto 72px` (移动端最小高度) |
+
+**技术说明**:
+
+- `content-visibility: auto` 允许浏览器跳过不在视口内的元素渲染
+- `contain-intrinsic-size` 提供占位尺寸,避免滚动跳动
+- 对于邮件列表 (最多 100 封),可显著提升初始渲染速度
+
+---
+
+### 2026-01-13 16:00 - 上下文菜单样式
+
+#### 修改文件
+
+**文件**: `app/globals.css`
+
+| 位置 | 新增内容 |
+|------|----------|
+| 第 1751-1808 行 | `.email-context-menu` 样式 |
+| 第 1751-1808 行 | `@keyframes context-menu-appear` 动画 |
+| 第 1751-1808 行 | `.email-context-menu-item` 样式 |
+
+**样式特点**:
+
+- 固定定位,z-index: 300 (高于模态框)
+- 圆角 12px,阴影 `var(--elev-3)`
+- 150ms 淡入+缩放动画
+- 悬停背景变化过渡
+- 删除操作红色高亮
+
+---
+
+## 验证记录
+
+| 时间  | 验证内容                 | 结果                         |
+| ----- | ------------------------ | ---------------------------- |
+| 16:15 | `npm run lint` | ⏳ 运行中 |
+| 16:15 | 移动端布局 (375x667) | ⏸️ 需要用户手动验证 |
+| 16:15 | 桌面端布局 (1024x768) | ⏸️ 需要用户手动验证 |
+
+---
+
+*最后更新：2026-01-13 16:15*

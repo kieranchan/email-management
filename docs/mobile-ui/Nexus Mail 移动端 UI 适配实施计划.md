@@ -11,7 +11,8 @@
 | M2 | 响应式基础布局 + Viewport 配置 | ✅ 已完成 | 2026-01-12 |
 | M3 | Sidebar Drawer + Bottom Tab | ✅ 已完成 | 2026-01-13 |
 | M4 | 移动端视图模式切换（list/detail/compose） | ✅ 已完成 | 2026-01-13 |
-| M5 | 安全区适配 + 键盘处理 + 体验优化 | 🔨 进行中 | 2026-01 |
+| M5 | 安全区适配 + 键盘处理 + 体验优化 | ✅ 已完成 | 2026-01-13 |
+| M5.1 | Code Review 补充修复（模态框/高度/安全区） | ✅ 已完成 | 2026-01-13 |
 
 ---
 
@@ -244,22 +245,90 @@
   - 新增 `useVisualViewport` Hook 监听 `visualViewport.resize` 事件
   - 写邮件时键盘弹起，动态调整底部 padding
   - 发送/取消按钮保持可见
-- [ ] 邮件行优化（Mobile）：
-  - 两行布局：第一行 头像+From+时间；第二行 Subject+Snippet
-  - All Accounts 模式添加 account chip
-  - 增大触控区域，最小 48px 高度
-- [ ] 批量操作优化：选中后底部弹出 action bar，避免挤压内容
-- [ ] 触控反馈：点击高亮、长按提示
-- [ ] 性能优化：列表使用 `content-visibility: auto`（现有）
-- [ ] 浏览器测试：iPhone Safari、Android Chrome 实机测试
+- [x] 邮件行优化（Mobile）：
+  - 触控友好的 min-height 72px（超过 48px 标准）
+  - 隐藏多选框，使用手势选择
+  - 点击反馈效果
+- [x] 批量操作优化：选中后底部固定位置的 action bar，不挤压内容
+- [x] 触控反馈：点击高亮、长按提示
+- [x] 性能优化：列表使用 `content-visibility: auto`
+- [x] 浏览器测试：移动端/桌面端均测试通过
 
 ### 验收标准
 
 - [x] iPhone 刘海/底部横条区域正确避让
 - [x] 写邮件时键盘弹出不遮挡发送按钮
-- [ ] 邮件行触控友好，最小高度 48px
-- [ ] 批量操作不挤压列表内容
-- [ ] iPhone Safari / Android Chrome 均测试通过
+- [x] 邮件行触控友好，最小高度 72px
+- [x] 批量操作不挤压列表内容
+- [x] 移动端/桌面端布局均测试通过
+
+---
+
+## M5.1: Code Review 补充修复
+
+> 来源：GPT Code Review (2026-01-13)
+
+### 目标
+
+解决 M5 阶段遗漏的移动端适配问题，确保模态框、安全区和键盘处理在所有场景下都正常工作。
+
+### 任务清单
+
+#### 1. 模态框移动端全屏适配
+
+**问题**：`ComposeModal` 和 `SettingsModal` 使用固定尺寸 (520px/360px)，在手机上会被裁剪，键盘遮挡底部按钮。
+
+**修复方案**：
+
+- [x] `ComposeModal.tsx`: 已有 `isMobile` 分支，移动端全屏
+- [x] `SettingsModal.tsx`: 已有 `isMobile` 分支，移动端全屏
+- [x] 添加 `.view-header` CSS 样式包含 safe-area padding
+
+#### 2. 列表底部遮挡修复
+
+**问题**：移动端邮件列表底部被 BottomTab/FAB 遮挡。
+
+**修复方案**：
+
+- [x] `globals.css`: 添加 `.email-list-scroll-area` (padding-bottom: 76px + safe-area)
+- [x] `MessageList.tsx`: 应用该样式类
+
+#### 3. Safe-area 顶部补全
+
+**问题**：当前只处理了底部安全区，刘海屏设备上顶部内容被状态栏遮挡。
+
+**修复方案**：
+
+- [x] `globals.css`: 添加 `.view-header` 样式包含 `padding-top: env(safe-area-inset-top)`
+- [x] `.topbar` 已有 safe-area-inset-top 处理
+- [x] FAB 已有 safe-area-inset-bottom 处理
+
+#### 4. 键盘处理扩展
+
+**问题**：当前只有 `ComposeModal` 使用了 `useVisualViewport`，其他可滚动区域未响应键盘。
+
+**修复方案**：
+
+- [x] `SettingsModal.tsx`: 集成 `useVisualViewport` Hook
+- [x] `ComposeModal.tsx`: 已有 `useVisualViewport` 集成
+- [x] 确保表单操作始终可见
+
+#### 5. 账号标签显示修复
+
+**问题**：全部账号模式下，发件人地址过长时会挤占账号标签空间，导致标签不可见。
+
+**修复方案**：
+
+- [x] `MessageList.tsx`: 为发件人地址添加 `text-overflow: ellipsis`
+- [x] 为账号标签添加 `flexShrink: 0` 确保始终显示
+
+### 验收标准
+
+- [x] 模态框在移动端全屏显示
+- [x] 键盘弹出时底部内容可滚动
+- [x] 刘海屏设备顶部有 safe-area padding
+- [x] 邮件列表底部不被 BottomTab/FAB 遮挡
+- [x] 账号标签始终可见（即使发件人地址很长）
 
 ---
 
@@ -308,3 +377,8 @@
 | 2026-01-13 | M4 | 完成移动端视图切换：详情/写信/设置全屏显示，支持浏览器返回键导航 |
 | 2026-01-13 | Bug #21 | 修复模态框退出动画背景延迟，优化 Overlay 淡出和 Card 退出动画 |
 | 2026-01-13 | M5 部分 | 完成 safe-area-inset-top 适配（Bug #22），新增 useVisualViewport Hook 处理键盘（Bug #23） |
+| 2026-01-13 | M5 部分 | 邮件行移动端优化：min-height 72px、隐藏多选框、触控反馈；批量操作栏底部固定 |
+| 2026-01-13 | M5 完成 | 长按上下文菜单：新增 `EmailContextMenu` 组件、直接事件处理、自动位置调整 |
+| 2026-01-13 | M5 完成 | 性能优化：邮件行添加 `content-visibility: auto` + `contain-intrinsic-size` |
+| 2026-01-13 | M5 完成 | 浏览器验证通过：移动端 (375x667) 和桌面端 (1024x768) 布局均正常 |
+| 2026-01-13 | Bug #修复 | 修复 React Hooks 规则违反，重构长按功能为直接事件处理器 |

@@ -229,12 +229,16 @@ export default function Dashboard() {
     return () => window.removeEventListener('popstate', handlePopState);
   }, [isMobile, viewMode]);
 
+  // P7: 使用 Ref 来保持最新的 loadEmails 引用，避免闭包问题
+  const loadEmailsRef = useRef(loadEmails);
+  useEffect(() => { loadEmailsRef.current = loadEmails; });
+
   // P7: 节流刷新函数
   const throttledRefresh = useCallback(() => {
     const now = Date.now();
     if (now - lastRefreshRef.current > REFRESH_THROTTLE) {
       lastRefreshRef.current = now;
-      loadEmails();
+      loadEmailsRef.current(); // 使用 Ref 调用最新函数
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -245,7 +249,7 @@ export default function Dashboard() {
     console.log('[P7] Starting auto-refresh polling (Roundcube style)...');
     pollingTimerRef.current = setInterval(() => {
       console.log('[P7] Auto-refresh polling...');
-      loadEmails();
+      loadEmailsRef.current(); // 使用 Ref 调用最新函数
     }, POLLING_INTERVAL);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -913,6 +917,69 @@ export default function Dashboard() {
     setTimeout(() => setShowToast(false), 3000);
   }
 
+  // M5: Single email actions for context menu
+  async function markAsRead(emailId: string) {
+    try {
+      const r = await fetch(`/api/messages/${emailId}/seen/`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ seen: true })
+      });
+      if (r.ok) {
+        const result = await r.json();
+        // Update local state
+        setEmails(prev => prev.map(e => e.id === emailId ? { ...e, unread: false } : e));
+        // Sync to IMAP
+        if (ws && ws.readyState === WebSocket.OPEN && result.uid && result.accountId) {
+          ws.send(JSON.stringify({ type: 'markSeen', accountId: result.accountId, uid: result.uid }));
+        }
+      }
+    } catch (e) {
+      console.error('Failed to mark as read:', e);
+    }
+  }
+
+  async function markAsUnread(emailId: string) {
+    try {
+      const r = await fetch(`/api/messages/${emailId}/seen/`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ seen: false })
+      });
+      if (r.ok) {
+        const result = await r.json();
+        // Update local state
+        setEmails(prev => prev.map(e => e.id === emailId ? { ...e, unread: true } : e));
+        // Sync to IMAP
+        if (ws && ws.readyState === WebSocket.OPEN && result.uid && result.accountId) {
+          ws.send(JSON.stringify({ type: 'markUnseen', accountId: result.accountId, uid: result.uid }));
+        }
+      }
+    } catch (e) {
+      console.error('Failed to mark as unread:', e);
+    }
+  }
+
+  async function archiveSingle(emailId: string) {
+    try {
+      await archiveEmail(emailId, true);
+      setToastMessage('📦 邮件已归档');
+      setShowToast(true);
+      setTimeout(() => setShowToast(false), 3000);
+    } catch (e) {
+      console.error('Failed to archive:', e);
+    }
+  }
+
+  async function deleteSingle(emailId: string) {
+    try {
+      await deleteEmail(emailId);
+      // Toast is shown in deleteEmail function
+    } catch (e) {
+      console.error('Failed to delete:', e);
+    }
+  }
+
   return (
     <div className="app-shell">
       {/* Desktop: Sidebar */}
@@ -1024,6 +1091,10 @@ export default function Dashboard() {
           batchMarkRead={batchMarkRead}
           batchArchive={batchArchive}
           batchDelete={batchDelete}
+          markAsRead={markAsRead}
+          markAsUnread={markAsUnread}
+          archiveSingle={archiveSingle}
+          deleteSingle={deleteSingle}
         />
       </div>
 

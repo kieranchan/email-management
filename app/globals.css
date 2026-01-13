@@ -1411,6 +1411,12 @@ body.noise::before {
         padding-top: env(safe-area-inset-top, 0px);
         height: calc(56px + env(safe-area-inset-top, 0px));
     }
+
+    /* M5.1: 邮件列表底部 padding 防止被 BottomTab 遮挡 */
+    .email-list-scroll-area {
+        /* 增加到 76px ，确保 FAB 不遮挡列表底部内容 */
+        padding-bottom: calc(76px + env(safe-area-inset-bottom, 0px));
+    }
 }
 
 /* ============================================
@@ -1511,6 +1517,21 @@ body.noise::before {
     border-top: 1px solid var(--stroke-1);
     -webkit-backdrop-filter: blur(16px) saturate(120%);
     backdrop-filter: blur(16px) saturate(120%);
+}
+
+/* M5.1: View Header for fullscreen mobile views */
+.view-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 16px;
+    padding-top: calc(12px + env(safe-area-inset-top, 0px));
+    min-height: calc(56px + env(safe-area-inset-top, 0px));
+    background: var(--bg-0);
+    border-bottom: 1px solid var(--stroke-1);
+    color: var(--text-1);
+    font-size: 17px;
+    font-weight: 600;
 }
 
 .bottom-tab-item {
@@ -1640,4 +1661,176 @@ body.noise::before {
         /* Ensure dropdown doesn't overflow screen */
         max-height: min(40vh, 300px) !important;
     }
+}
+
+/* ============================================
+   M5: Message Row Mobile Optimization
+   ============================================ */
+
+/* Base message row styles */
+.message-row {
+    border-radius: 12px;
+    background: var(--surface-1);
+    transition: background 150ms ease-out, box-shadow 150ms ease-out;
+    /* M5: Performance optimization - skip rendering off-screen emails */
+    content-visibility: auto;
+    contain-intrinsic-size: auto 72px;
+}
+
+.message-row:hover {
+    background: var(--surface-2);
+}
+
+.message-row:active {
+    background: var(--surface-3);
+}
+
+.message-row.selected {
+    background: var(--surface-2);
+    box-shadow: inset 0 0 0 2px var(--accent);
+}
+
+.message-row.unread {
+    background: linear-gradient(90deg, rgba(var(--accent-rgb), 0.05) 0%, var(--surface-1) 100%);
+}
+
+.message-row.unread:hover {
+    background: linear-gradient(90deg, rgba(var(--accent-rgb), 0.08) 0%, var(--surface-2) 100%);
+}
+
+/* Unread indicator bar */
+.unread-indicator {
+    width: 3px;
+    background: var(--accent);
+}
+
+/* Mobile: Touch-friendly email rows */
+@media (max-width: 768px) {
+    .message-row {
+        min-height: 72px;
+        /* Exceeds 48px touch target requirement */
+        padding: 12px 16px !important;
+        gap: 12px !important;
+        border-radius: 10px;
+        margin-bottom: 8px !important;
+    }
+
+    /* Hide checkbox on mobile - use long-press for selection */
+    .message-row input[type="checkbox"] {
+        display: none;
+    }
+
+    /* Avatar size adjustment for mobile */
+    .message-row>div:nth-child(3) {
+        width: 36px !important;
+        height: 36px !important;
+        font-size: 14px !important;
+    }
+
+    /* Add touch feedback ripple effect */
+    .message-row::after {
+        content: '';
+        position: absolute;
+        inset: 0;
+        background: transparent;
+        pointer-events: none;
+        border-radius: inherit;
+    }
+
+    .message-row:active::after {
+        background: rgba(var(--accent-rgb), 0.1);
+    }
+}
+
+/* Mobile: Bottom Batch Action Bar */
+@media (max-width: 768px) {
+    .batch-action-bar {
+        position: fixed !important;
+        bottom: calc(56px + env(safe-area-inset-bottom, 0px)) !important;
+        /* Above BottomTab */
+        left: 0 !important;
+        right: 0 !important;
+        margin: 0 !important;
+        border-radius: 0 !important;
+        padding: 12px 16px !important;
+        z-index: 150;
+        background: var(--bg-1) !important;
+        border-top: 1px solid var(--stroke-1);
+        box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.1);
+        gap: 8px !important;
+        justify-content: space-around;
+    }
+
+    .batch-action-bar .btn-secondary {
+        flex: 1;
+        justify-content: center;
+        padding: 10px !important;
+        font-size: 11px !important;
+    }
+}
+
+/* ============================================
+   M5: Email Context Menu (Long Press)
+   ============================================ */
+
+.email-context-menu {
+    position: fixed;
+    z-index: 300;
+    /* M5: 使用实心背景 var(--bg-2) 代替 var(--surface-1) */
+    background: var(--bg-2);
+    border: 1px solid var(--stroke-1);
+    border-radius: 12px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+    /* 加深阴影 */
+    padding: 4px;
+    min-width: 180px;
+    animation: context-menu-appear 150ms ease-out;
+    /* 移除透明磨砂效果 */
+}
+
+/* 亮色模式适配 */
+[data-theme='light'] .email-context-menu {
+    background: #ffffff;
+    border-color: #e5e7eb;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+}
+
+@keyframes context-menu-appear {
+    from {
+        opacity: 0;
+        transform: scale(0.95) translateY(-4px);
+    }
+
+    to {
+        opacity: 1;
+        transform: scale(1) translateY(0);
+    }
+}
+
+.email-context-menu-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background 150ms ease-out;
+    font-size: 14px;
+    color: var(--text-1);
+    border: none;
+    background: transparent;
+    width: 100%;
+    text-align: left;
+}
+
+.email-context-menu-item:hover {
+    background: var(--surface-2);
+}
+
+.email-context-menu-item.danger {
+    color: #ef4444;
+}
+
+.email-context-menu-item.danger:hover {
+    background: rgba(239, 68, 68, 0.1);
 }

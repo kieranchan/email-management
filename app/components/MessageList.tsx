@@ -1,7 +1,9 @@
 'use client';
 
+import { useState, useRef, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { Mail, Check, Archive, Trash2 } from 'lucide-react';
+import EmailContextMenu from './EmailContextMenu';
 
 interface Email {
     id: string;
@@ -42,6 +44,10 @@ interface MessageListProps {
     batchMarkRead: () => void;
     batchArchive: () => void;
     batchDelete: () => void;
+    markAsRead: (id: string) => void;
+    markAsUnread: (id: string) => void;
+    archiveSingle: (id: string) => void;
+    deleteSingle: (id: string) => void;
 }
 
 const transitionBase = { type: 'spring', damping: 25, stiffness: 300 };
@@ -63,16 +69,68 @@ export default function MessageList({
     batchMarkRead,
     batchArchive,
     batchDelete,
+    markAsRead,
+    markAsUnread,
+    archiveSingle,
+    deleteSingle,
 }: MessageListProps) {
+    // 上下文菜单状态
+    const [contextMenu, setContextMenu] = useState<{
+        email: Email;
+        position: { x: number; y: number };
+    } | null>(null);
+
+    // 长按处理逻辑 (不使用 Hook，避免在循环中调用)
+    const longPressTimerRef = useRef<NodeJS.Timeout | null>(null);
+    const touchStartPosRef = useRef<{ x: number; y: number } | null>(null);
+
+    const handleTouchStart = useCallback((e: Email) => (event: React.TouchEvent) => {
+        const touch = event.touches[0];
+        if (!touch) return;
+
+        touchStartPosRef.current = { x: touch.clientX, y: touch.clientY };
+        longPressTimerRef.current = setTimeout(() => {
+            setContextMenu({
+                email: e,
+                position: { x: touch.clientX, y: touch.clientY },
+            });
+        }, 500);
+    }, []);
+
+    const handleTouchEnd = useCallback(() => {
+        if (longPressTimerRef.current) {
+            clearTimeout(longPressTimerRef.current);
+            longPressTimerRef.current = null;
+        }
+        touchStartPosRef.current = null;
+    }, []);
+
+    const handleTouchMove = useCallback((event: React.TouchEvent) => {
+        if (!touchStartPosRef.current) return;
+        const touch = event.touches[0];
+        if (!touch) return;
+
+        const deltaX = Math.abs(touch.clientX - touchStartPosRef.current.x);
+        const deltaY = Math.abs(touch.clientY - touchStartPosRef.current.y);
+
+        // 移动超过 10px，取消长按
+        if (deltaX > 10 || deltaY > 10) {
+            if (longPressTimerRef.current) {
+                clearTimeout(longPressTimerRef.current);
+                longPressTimerRef.current = null;
+            }
+            touchStartPosRef.current = null;
+        }
+    }, []);
     return (
-        <div className="message-list">
+        <div className="message-list email-list-scroll-area">
             {/* 批量操作栏 */}
             {(selectedIds.size > 0 || batchProgress) && (
                 <motion.div
                     initial={{ opacity: 0, y: -10 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: -10 }}
-                    className="glass"
+                    className="glass batch-action-bar"
                     style={{
                         display: 'flex',
                         alignItems: 'center',
@@ -156,6 +214,9 @@ export default function MessageList({
                             selectEmail(e);
                         }
                     }}
+                    onTouchStart={handleTouchStart(e)}
+                    onTouchEnd={handleTouchEnd}
+                    onTouchMove={handleTouchMove}
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: i * 0.03, ...transitionBase }}
@@ -182,20 +243,22 @@ export default function MessageList({
                     </div>
                     <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
-                            <div style={{ fontSize: 15, fontWeight: e.unread ? 600 : 500, color: 'var(--text-1)', display: 'flex', alignItems: 'center', gap: 8 }}>
-                                {e.from}
+                            <div style={{ fontSize: 15, fontWeight: e.unread ? 600 : 500, color: 'var(--text-1)', display: 'flex', alignItems: 'center', gap: 8, minWidth: 0, flex: 1, overflow: 'hidden' }}>
+                                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flexShrink: 1 }}>
+                                    {e.from}
+                                </span>
                                 {(selected === 'all' || !selected) && e.accountLabel && (
                                     (() => {
                                         const badge = getTagBadge(e.accountColorTag || '');
                                         return (
-                                            <span style={{ fontSize: 10, padding: '2px 6px', borderRadius: 4, background: badge.color, color: '#000', fontWeight: 700, opacity: 0.9 }}>
+                                            <span style={{ fontSize: 10, padding: '2px 6px', borderRadius: 4, background: badge.color, color: '#000', fontWeight: 700, opacity: 0.9, flexShrink: 0, whiteSpace: 'nowrap' }}>
                                                 {e.accountLabel}
                                             </span>
                                         );
                                     })()
                                 )}
                             </div>
-                            <div style={{ fontSize: 12, color: 'var(--text-3)', fontFamily: 'var(--font-ui)' }}>
+                            <div style={{ fontSize: 12, color: 'var(--text-3)', fontFamily: 'var(--font-ui)', flexShrink: 0, marginLeft: 8 }}>
                                 {e.date ? new Date(e.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
                             </div>
                         </div>
@@ -207,6 +270,24 @@ export default function MessageList({
                     </div>
                 </motion.div>
             ))}
+
+            {/* 上下文菜单 */}
+            {contextMenu && (
+                <EmailContextMenu
+                    email={contextMenu.email}
+                    position={contextMenu.position}
+                    onClose={() => setContextMenu(null)}
+                    onMarkRead={(id, read) => {
+                        if (read) {
+                            markAsRead(id);
+                        } else {
+                            markAsUnread(id);
+                        }
+                    }}
+                    onArchive={archiveSingle}
+                    onDelete={deleteSingle}
+                />
+            )}
         </div>
     );
 }

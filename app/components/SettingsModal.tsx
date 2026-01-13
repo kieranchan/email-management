@@ -2,6 +2,7 @@
 
 import { motion } from 'framer-motion';
 import { X, Sun, Moon, Check, ArrowLeft } from 'lucide-react';
+import { useVisualViewport } from '../hooks/useVisualViewport';
 
 interface AccentColor {
     id: string;
@@ -57,6 +58,9 @@ export default function SettingsModal({
     deleteTag,
     isMobile = false,
 }: SettingsModalProps) {
+    // M5.1: Keyboard detection for mobile
+    const { keyboardHeight, isKeyboardOpen } = useVisualViewport();
+
     // Mobile: Fullscreen view
     if (isMobile) {
         return (
@@ -94,8 +98,14 @@ export default function SettingsModal({
                     <div style={{ width: 36 }} /> {/* Spacer for centering */}
                 </div>
 
-                {/* Content (scrollable) */}
-                <div style={{ flex: 1, overflowY: 'auto', padding: 24 }}>
+                {/* Content (scrollable, keyboard-aware) */}
+                <div style={{
+                    flex: 1,
+                    overflowY: 'auto',
+                    padding: 24,
+                    paddingBottom: isKeyboardOpen ? keyboardHeight + 24 : 24,
+                    transition: 'padding-bottom 0.15s ease-out',
+                }}>
                     {/* Theme Mode */}
                     <div style={{ marginBottom: 24 }}>
                         <div style={{ fontSize: 12, color: 'var(--text-2)', marginBottom: 12, fontWeight: 500 }}>主题模式</div>

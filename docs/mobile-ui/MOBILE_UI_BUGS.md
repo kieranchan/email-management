@@ -10,7 +10,7 @@
 | 状态       | 数量 |
 | ---------- | ---- |
 | 🔴 待修复 | 0 |
-| 🟢 已修复 | 23 |
+| 🟢 已修复 | 24 |
 | 🟡 进行中 | 0 |
 
 ---
@@ -21,13 +21,31 @@
 
 ---
 
-## 进行中
-
-### 暂无
+- [x] 暂无待修复 Bug
 
 ---
 
 ## 🟢 已修复
+
+### Bug #25: 轮询/WebSocket 推送无法更新非收件箱邮件
+
+**发现日期**：2026-01-13
+**来源**：用户反馈
+
+**问题描述**：
+在"已发送"或其他非收件箱文件夹，等待自动轮询（30s）或收到 WebSocket `sync_progress`/`new_email` 推送时，列表不会刷新。
+
+**原因分析**：
+`startPolling` 和 `throttledRefresh` 使用了 `useCallback([], ...)`，导致它们闭包捕获的是组件第一次渲染时的 `loadEmails` 函数。而第一次渲染时 `activeFolder` 状态尚未更新（默认为 `inbox`）。因此，无论用户切换到哪个文件夹，轮询器始终在请求收件箱的数据。
+
+**解决方案**：
+引入 `loadEmailsRef` (useRef) 来保持对最新 `loadEmails` 函数的引用，并在 `useEffect` 中每次渲染后更新它。轮询器通过 `loadEmailsRef.current()` 调用，从而始终执行最新的逻辑（包含最新的 `activeFolder` 和 `selectedAccount` 状态）。
+
+**相关文件**：
+
+- `app/page.tsx`
+
+**状态**：🟢 已修复 (2026-01-13)
 
 ### Bug #23: 缺少虚拟键盘处理
 
@@ -646,8 +664,6 @@ lastSyncedAt: string | null;
 **状态**：🟢 已修复 (2026-01-13 02:03)
 
 ---
-
-### 🟢 已修复
 
 ### Bug #20: ComposeModal 按钮缺少无障碍标签
 
