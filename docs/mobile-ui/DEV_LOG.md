@@ -511,7 +511,7 @@ export const viewport: Viewport = {
 
 ---
 
-## M2: 响应式基础布局 ✅
+## M2 补充: 响应式基础布局详细配置 ✅
 
 ### 2026-01-12 23:00 - Viewport 配置
 
