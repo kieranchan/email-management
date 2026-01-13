@@ -28,6 +28,9 @@ interface SettingsModalProps {
     onClose: () => void;
     toggleMode: (dark: boolean) => void;
     changeAccent: (color: string) => void;
+    previewAccent?: (color: string | null) => void;  // M6 P2: hover 预览
+    resetAccent?: () => void;                         // M6 P2: 重置默认
+    defaultAccent?: string;                           // M6 P2: 默认强调色
     setNewTagLabel: (label: string) => void;
     setNewTagColor: (color: string) => void;
     setTagError: (error: string | null) => void;
@@ -51,6 +54,9 @@ export default function SettingsModal({
     onClose,
     toggleMode,
     changeAccent,
+    previewAccent,
+    resetAccent,
+    defaultAccent = '#8b5cf6',
     setNewTagLabel,
     setNewTagColor,
     setTagError,
@@ -252,13 +258,27 @@ export default function SettingsModal({
 
                     {/* Accent Colors */}
                     <div>
-                        <div style={{ fontSize: 12, color: 'var(--text-2)', marginBottom: 12, fontWeight: 500 }}>强调色</div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                            <span style={{ fontSize: 12, color: 'var(--text-2)', fontWeight: 500 }}>强调色</span>
+                            {resetAccent && accent !== defaultAccent && (
+                                <button
+                                    onClick={resetAccent}
+                                    style={{ fontSize: 11, color: 'var(--text-3)', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline' }}
+                                    title="重置为默认强调色"
+                                >
+                                    重置默认
+                                </button>
+                            )}
+                        </div>
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
                             {accentColors.map((c) => (
                                 <button
                                     key={c.id}
                                     onClick={() => changeAccent(c.color)}
+                                    onMouseEnter={() => previewAccent?.(c.color)}
+                                    onMouseLeave={() => previewAccent?.(null)}
                                     style={{ padding: 10, borderRadius: 10, background: 'var(--surface-1)', border: `2px solid ${accent === c.color ? c.color : 'transparent'}`, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8, transition: 'all 0.2s' }}
+                                    title={`选择 ${c.name}`}
                                 >
                                     <div style={{ width: 14, height: 14, borderRadius: 4, background: c.color, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                                         {accent === c.color && <Check size={10} color="#fff" />}

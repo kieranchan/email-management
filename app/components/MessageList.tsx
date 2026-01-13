@@ -1,8 +1,8 @@
 'use client';
 
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { Mail, Check, Archive, Trash2 } from 'lucide-react';
+import { Mail, Check, Archive, Trash2, Filter, Clock, User, Star, Paperclip, MailOpen } from 'lucide-react';
 import EmailContextMenu from './EmailContextMenu';
 
 interface Email {
@@ -11,6 +11,8 @@ interface Email {
     subject: string;
     date: string;
     unread?: boolean;
+    starred?: boolean;
+    hasAttachment?: boolean;
     snippet?: string;
     content?: string;
     accountLabel?: string;
@@ -26,6 +28,9 @@ interface TagBadge {
     label: string;
     color: string;
 }
+
+type FilterType = 'all' | 'unread' | 'starred' | 'attachment';
+type SortType = 'date' | 'from';
 
 interface MessageListProps {
     emails: Email[];
@@ -48,9 +53,19 @@ interface MessageListProps {
     markAsUnread: (id: string) => void;
     archiveSingle: (id: string) => void;
     deleteSingle: (id: string) => void;
+    onRefresh?: () => void;
 }
 
 const transitionBase = { type: 'spring', damping: 25, stiffness: 300 };
+
+// 清理 HTML 片段，提取纯文本预览
+function cleanSnippet(html: string): string {
+    if (!html) return '';
+    // 移除 HTML 标签
+    const text = html.replace(/<[^>]*>/g, ' ').replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ').trim();
+    // 截断到合理长度
+    return text.length > 100 ? text.substring(0, 100) + '...' : text;
+}
 
 export default function MessageList({
     emails,
@@ -73,7 +88,50 @@ export default function MessageList({
     markAsUnread,
     archiveSingle,
     deleteSingle,
+    onRefresh,
 }: MessageListProps) {
+    // M6: 筛选和排序状态
+    const [filter, setFilter] = useState<FilterType>('all');
+    const [sort, setSort] = useState<SortType>('date');
+    const [showFilterBar, setShowFilterBar] = useState(false);
+
+    // 筛选和排序后的邮件列表
+    const filteredEmails = useMemo(() => {
+        let result = [...emails];
+
+        // 应用筛选
+        switch (filter) {
+            case 'unread':
+                result = result.filter(e => e.unread);
+                break;
+            case 'starred':
+                result = result.filter(e => e.starred);
+                break;
+            case 'attachment':
+                result = result.filter(e => e.hasAttachment);
+                break;
+        }
+
+        // 应用排序
+        result.sort((a, b) => {
+            if (sort === 'date') {
+                return new Date(b.date).getTime() - new Date(a.date).getTime();
+            } else {
+                return (a.from || '').localeCompare(b.from || '');
+            }
+        });
+
+        return result;
+    }, [emails, filter, sort]);
+
+    // 统计数据
+    const stats = useMemo(() => ({
+        total: emails.length,
+        unread: emails.filter(e => e.unread).length,
+        starred: emails.filter(e => e.starred).length,
+        attachment: emails.filter(e => e.hasAttachment).length,
+    }), [emails]);
+
     // 上下文菜单状态
     const [contextMenu, setContextMenu] = useState<{
         email: Email;
@@ -122,8 +180,76 @@ export default function MessageList({
             touchStartPosRef.current = null;
         }
     }, []);
+
     return (
         <div className="message-list email-list-scroll-area">
+            {/* M6: 筛选/排序工具栏 */}
+            <div className="list-toolbar">
+                <button
+                    className={`toolbar-filter-btn ${showFilterBar ? 'active' : ''}`}
+                    onClick={() => setShowFilterBar(!showFilterBar)}
+                    title="筛选与排序"
+                >
+                    <Filter size={14} />
+                    <span>筛选</span>
+                    {filter !== 'all' && <span className="filter-badge">{stats[filter]}</span>}
+                </button>
+
+                {showFilterBar && (
+                    <div className="filter-bar">
+                        {/* 筛选按钮组 */}
+                        <div className="filter-group">
+                            <button
+                                className={`filter-chip ${filter === 'all' ? 'active' : ''}`}
+                                onClick={() => setFilter('all')}
+                            >
+                                全部 ({stats.total})
+                            </button>
+                            <button
+                                className={`filter-chip ${filter === 'unread' ? 'active' : ''}`}
+                                onClick={() => setFilter('unread')}
+                            >
+                                <MailOpen size={12} />
+                                未读 ({stats.unread})
+                            </button>
+                            <button
+                                className={`filter-chip ${filter === 'starred' ? 'active' : ''}`}
+                                onClick={() => setFilter('starred')}
+                            >
+                                <Star size={12} />
+                                星标 ({stats.starred})
+                            </button>
+                            <button
+                                className={`filter-chip ${filter === 'attachment' ? 'active' : ''}`}
+                                onClick={() => setFilter('attachment')}
+                            >
+                                <Paperclip size={12} />
+                                附件 ({stats.attachment})
+                            </button>
+                        </div>
+
+                        {/* 排序切换 */}
+                        <div className="sort-group">
+                            <span className="sort-label">排序:</span>
+                            <button
+                                className={`sort-chip ${sort === 'date' ? 'active' : ''}`}
+                                onClick={() => setSort('date')}
+                            >
+                                <Clock size={12} />
+                                时间
+                            </button>
+                            <button
+                                className={`sort-chip ${sort === 'from' ? 'active' : ''}`}
+                                onClick={() => setSort('from')}
+                            >
+                                <User size={12} />
+                                发件人
+                            </button>
+                        </div>
+                    </div>
+                )}
+            </div>
+
             {/* 批量操作栏 */}
             {(selectedIds.size > 0 || batchProgress) && (
                 <motion.div
@@ -189,20 +315,53 @@ export default function MessageList({
                 </motion.div>
             )}
 
-            {/* 加载状态 */}
-            {loading && <div style={{ textAlign: 'center', padding: 60, color: 'var(--text-3)' }}>加载邮件中...</div>}
+            {/* 加载状态 - 骨架屏 */}
+            {loading && (
+                <div className="email-skeleton-list">
+                    {[1, 2, 3, 4, 5].map(i => (
+                        <div key={i} className="email-skeleton-item">
+                            <div className="skeleton-avatar" />
+                            <div className="skeleton-content">
+                                <div className="skeleton-line short" />
+                                <div className="skeleton-line long" />
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            )}
 
             {/* 空状态 */}
-            {!loading && emails.length === 0 && (
+            {!loading && filteredEmails.length === 0 && (
                 <div style={{ textAlign: 'center', padding: 100, color: 'var(--text-3)' }}>
                     <Mail size={48} style={{ marginBottom: 16, opacity: 0.2 }} />
-                    <div style={{ fontSize: 16, fontWeight: 500, marginBottom: 8, color: 'var(--text-2)' }}>{folderEmpty.title}</div>
-                    <div style={{ fontSize: 13 }}>{folderEmpty.hint}</div>
+                    {emails.length === 0 ? (
+                        <>
+                            <div style={{ fontSize: 16, fontWeight: 500, marginBottom: 8, color: 'var(--text-2)' }}>{folderEmpty.title}</div>
+                            <div style={{ fontSize: 13, marginBottom: 16 }}>{folderEmpty.hint}</div>
+                            {onRefresh && (
+                                <button onClick={onRefresh} className="btn-secondary">
+                                    刷新邮件
+                                </button>
+                            )}
+                        </>
+                    ) : (
+                        <>
+                            <div style={{ fontSize: 16, fontWeight: 500, marginBottom: 8, color: 'var(--text-2)' }}>
+                                没有符合条件的邮件
+                            </div>
+                            <div style={{ fontSize: 13, marginBottom: 16 }}>
+                                尝试更改筛选条件
+                            </div>
+                            <button onClick={() => setFilter('all')} className="btn-secondary">
+                                显示全部
+                            </button>
+                        </>
+                    )}
                 </div>
             )}
 
             {/* 邮件列表 */}
-            {emails.map((e, i) => (
+            {filteredEmails.map((e, i) => (
                 <motion.div
                     key={e.id}
                     role="button"
@@ -229,6 +388,7 @@ export default function MessageList({
                         checked={selectedIds.has(e.id)}
                         onClick={(ev) => ev.stopPropagation()}
                         onChange={(ev) => toggleSelect(e.id, ev.target.checked)}
+                        className="message-checkbox"
                         style={{
                             width: 16,
                             height: 16,
@@ -242,16 +402,22 @@ export default function MessageList({
                         {e.from?.[0]?.toUpperCase()}
                     </div>
                     <div style={{ flex: 1, minWidth: 0 }}>
+                        {/* 第一行：发件人 + 状态图标 + 时间 */}
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
                             <div style={{ fontSize: 15, fontWeight: e.unread ? 600 : 500, color: 'var(--text-1)', display: 'flex', alignItems: 'center', gap: 8, minWidth: 0, flex: 1, overflow: 'hidden' }}>
-                                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flexShrink: 1 }}>
+                                <span className="email-from" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flexShrink: 1 }}>
                                     {e.from}
                                 </span>
+                                {/* 状态图标：星标、附件 */}
+                                <div className="email-status-icons">
+                                    {e.starred && <Star size={12} className="email-starred-icon" />}
+                                    {e.hasAttachment && <Paperclip size={12} className="email-attachment-icon" />}
+                                </div>
                                 {(selected === 'all' || !selected) && e.accountLabel && (
                                     (() => {
                                         const badge = getTagBadge(e.accountColorTag || '');
                                         return (
-                                            <span style={{ fontSize: 10, padding: '2px 6px', borderRadius: 4, background: badge.color, color: '#000', fontWeight: 700, opacity: 0.9, flexShrink: 0, whiteSpace: 'nowrap' }}>
+                                            <span className="email-account-tag" style={{ fontSize: 10, padding: '2px 6px', borderRadius: 4, background: badge.color, color: '#000', fontWeight: 700, opacity: 0.9, flexShrink: 0, whiteSpace: 'nowrap' }}>
                                                 {e.accountLabel}
                                             </span>
                                         );
@@ -262,10 +428,15 @@ export default function MessageList({
                                 {e.date ? new Date(e.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
                             </div>
                         </div>
-                        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                            <span style={{ fontSize: 14, color: e.unread ? 'var(--text-1)' : 'var(--text-2)', fontWeight: e.unread ? 500 : 400 }}>{e.subject || '(无主题)'}</span>
-                            <span style={{ fontSize: 13, color: 'var(--text-3)' }}>-</span>
-                            <span style={{ fontSize: 13, color: 'var(--text-3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>{getPreview(e)}</span>
+                        {/* 第二行：主题 + 摘要 */}
+                        <div className="email-subject-row" style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                            <span className="email-subject" style={{ fontSize: 14, color: e.unread ? 'var(--text-1)' : 'var(--text-2)', fontWeight: e.unread ? 500 : 400, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '50%' }}>
+                                {e.subject || '(无主题)'}
+                            </span>
+                            <span style={{ fontSize: 13, color: 'var(--text-4)' }}>-</span>
+                            <span className="email-snippet" style={{ fontSize: 13, color: 'var(--text-3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>
+                                {cleanSnippet(getPreview(e))}
+                            </span>
                         </div>
                     </div>
                 </motion.div>
@@ -292,4 +463,4 @@ export default function MessageList({
     );
 }
 
-export type { Email, BatchProgress };
+export type { Email, BatchProgress, FilterType, SortType };

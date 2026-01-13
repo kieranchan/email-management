@@ -1,7 +1,8 @@
 'use client';
 
+import { useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
-import { ArrowLeft, Trash2, Archive, Send } from 'lucide-react';
+import { ArrowLeft, Trash2, Archive, Send, ChevronLeft, ChevronRight, Star, Mail, MailOpen, Forward } from 'lucide-react';
 
 interface Email {
   id: string;
@@ -12,6 +13,8 @@ interface Email {
   content?: string;
   snippet?: string;
   archived?: boolean;
+  unread?: boolean;
+  starred?: boolean;
 }
 
 interface EmailDetailProps {
@@ -20,6 +23,13 @@ interface EmailDetailProps {
   onClose: () => void;
   onDelete: (id: string) => void;
   onArchive: (id: string, archived: boolean) => void;
+  onMarkRead?: (id: string, read: boolean) => void;
+  onStar?: (id: string, starred: boolean) => void;
+  onForward?: (email: Email) => void;
+  onPrev?: () => void;
+  onNext?: () => void;
+  hasPrev?: boolean;
+  hasNext?: boolean;
   isMobile?: boolean;
 }
 
@@ -31,8 +41,33 @@ export default function EmailDetail({
   onClose,
   onDelete,
   onArchive,
+  onMarkRead,
+  onStar,
+  onForward,
+  onPrev,
+  onNext,
+  hasPrev = false,
+  hasNext = false,
   isMobile = false,
 }: EmailDetailProps) {
+  // M6: 键盘导航支持
+  const handleKeyDown = useCallback((e: KeyboardEvent) => {
+    if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+
+    if (e.key === 'ArrowLeft' && hasPrev && onPrev) {
+      e.preventDefault();
+      onPrev();
+    } else if (e.key === 'ArrowRight' && hasNext && onNext) {
+      e.preventDefault();
+      onNext();
+    }
+  }, [hasPrev, hasNext, onPrev, onNext]);
+
+  useEffect(() => {
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [handleKeyDown]);
+
   return (
     <motion.div
       initial={{ opacity: 0, x: isMobile ? '100%' : 20, y: 0 }}
@@ -56,7 +91,7 @@ export default function EmailDetail({
       }}
     >
       {/* Detail Header */}
-      <div style={{ height: 64, display: 'flex', alignItems: 'center', gap: 12, padding: '0 20px', borderBottom: '1px solid var(--stroke-1)' }}>
+      <div style={{ height: 64, display: 'flex', alignItems: 'center', gap: 8, padding: '0 16px', borderBottom: '1px solid var(--stroke-1)' }}>
         <button
           onClick={onClose}
           className="glass-button"
@@ -65,15 +100,94 @@ export default function EmailDetail({
         >
           <ArrowLeft size={18} />
         </button>
+
+        {/* M6: 上一封/下一封导航 */}
+        <div className="email-nav-buttons" style={{ display: 'flex', gap: 4 }}>
+          <button
+            onClick={onPrev}
+            disabled={!hasPrev}
+            className="glass-button"
+            style={{
+              width: 32, height: 32, borderRadius: 8,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              cursor: hasPrev ? 'pointer' : 'not-allowed',
+              opacity: hasPrev ? 1 : 0.4
+            }}
+            title="上一封 (←)"
+          >
+            <ChevronLeft size={16} />
+          </button>
+          <button
+            onClick={onNext}
+            disabled={!hasNext}
+            className="glass-button"
+            style={{
+              width: 32, height: 32, borderRadius: 8,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              cursor: hasNext ? 'pointer' : 'not-allowed',
+              opacity: hasNext ? 1 : 0.4
+            }}
+            title="下一封 (→)"
+          >
+            <ChevronRight size={16} />
+          </button>
+        </div>
+
         <span style={{ fontWeight: 600, fontSize: 15, color: 'var(--text-1)', flex: 1 }}>邮件详情</span>
-        <button
-          onClick={() => onDelete(email.id)}
-          className="glass-button"
-          style={{ width: 36, height: 36, borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#ef4444' }}
-          title="删除邮件"
-        >
-          <Trash2 size={18} />
-        </button>
+
+        {/* M6: 操作按钮组 */}
+        <div className="email-action-buttons" style={{ display: 'flex', gap: 4 }}>
+          {/* 标记已读/未读 */}
+          {onMarkRead && (
+            <button
+              onClick={() => onMarkRead(email.id, email.unread === true)}
+              className="glass-button"
+              style={{ width: 32, height: 32, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
+              title={email.unread ? '标记已读' : '标记未读'}
+            >
+              {email.unread ? <MailOpen size={16} /> : <Mail size={16} />}
+            </button>
+          )}
+
+          {/* 星标 */}
+          {onStar && (
+            <button
+              onClick={() => onStar(email.id, !email.starred)}
+              className="glass-button"
+              style={{
+                width: 32, height: 32, borderRadius: 8,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                cursor: 'pointer',
+                color: email.starred ? '#fbbf24' : undefined
+              }}
+              title={email.starred ? '取消星标' : '加星标'}
+            >
+              <Star size={16} fill={email.starred ? '#fbbf24' : 'none'} />
+            </button>
+          )}
+
+          {/* 转发 */}
+          {onForward && (
+            <button
+              onClick={() => onForward(email)}
+              className="glass-button"
+              style={{ width: 32, height: 32, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
+              title="转发"
+            >
+              <Forward size={16} />
+            </button>
+          )}
+
+          {/* 删除 */}
+          <button
+            onClick={() => onDelete(email.id)}
+            className="glass-button"
+            style={{ width: 32, height: 32, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#ef4444' }}
+            title="删除邮件"
+          >
+            <Trash2 size={16} />
+          </button>
+        </div>
       </div>
 
       {/* Email Content */}

@@ -99,6 +99,8 @@ export default function Dashboard() {
   type ConnectionStatus = 'connected' | 'disconnected' | 'reconnecting';
   const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>('disconnected');
   const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(null);
+  // M6: 同步错误状态
+  const [syncError, setSyncError] = useState<string | null>(null);
 
   // M3: Mobile drawer state
   const isMobile = useIsMobile();
@@ -194,6 +196,28 @@ export default function Dashboard() {
     document.addEventListener('keydown', handleGlobalEscape);
     return () => document.removeEventListener('keydown', handleGlobalEscape);
   }, [hasSelectedEmail, compose, showSettings, drawerOpen]);
+
+  // M6 P2: 键盘快捷键 'c' 写邮件
+  useEffect(() => {
+    const handleComposeShortcut = (event: KeyboardEvent) => {
+      // 排除：在输入框中、已有弹窗打开
+      const target = event.target as HTMLElement;
+      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) return;
+      if (compose || showSettings || drawerOpen) return;
+
+      if (event.key === 'c' && !event.ctrlKey && !event.metaKey && !event.altKey) {
+        event.preventDefault();
+        setCompose(true);
+        setSendError(null);
+        if (selected && selected !== 'all') {
+          setForm(prev => ({ ...prev, from: selected }));
+        }
+      }
+    };
+
+    document.addEventListener('keydown', handleComposeShortcut);
+    return () => document.removeEventListener('keydown', handleComposeShortcut);
+  }, [compose, showSettings, drawerOpen, selected]);
 
   // M4: Sync existing state to viewMode (mobile only)
   useEffect(() => {
@@ -317,6 +341,12 @@ export default function Dashboard() {
             } else if (data.type === 'sync_result') {
               console.log('[WS] Sync result:', data);
               setSyncing(false);
+              // Bug #26: 捕获同步错误
+              if (data.error) {
+                setSyncError(data.error);
+              } else {
+                setSyncError(null);
+              }
             }
           } catch (e) {
             console.error('[WS] Parse error:', e);
@@ -534,13 +564,15 @@ export default function Dashboard() {
       if (r.ok) {
         const data = await r.json();
         // Map API response to UI model
-        const enhanced = (data.items || []).map((e: { id: string; from?: string; to?: string; subject?: string; date?: string; unread?: boolean; snippet?: string; archived?: boolean; accountLabel?: string; accountColorTag?: string; uid?: number; accountId?: string }) => ({
+        const enhanced = (data.items || []).map((e: { id: string; from?: string; to?: string; subject?: string; date?: string; unread?: boolean; starred?: boolean; hasAttachment?: boolean; snippet?: string; archived?: boolean; accountLabel?: string; accountColorTag?: string; uid?: number; accountId?: string }) => ({
           id: e.id,
           from: e.from,
           to: e.to,
           subject: e.subject,
           date: e.date,
           unread: e.unread,
+          starred: e.starred,           // Bug #27: 保留 starred 字段
+          hasAttachment: e.hasAttachment, // Bug #27: 保留 hasAttachment 字段
           snippet: e.snippet,
           content: '', // Detail loaded on demand
           archived: e.archived,
@@ -654,6 +686,22 @@ export default function Dashboard() {
   function changeAccent(color: string) {
     setAccent(color);
     localStorage.setItem('theme-accent', color);
+  }
+
+  // M6 P2: hover 预览强调色（临时应用，不保存）
+  function previewAccent(color: string | null) {
+    if (color) {
+      document.documentElement.style.setProperty('--accent', color);
+    } else {
+      // 恢复当前保存的强调色
+      document.documentElement.style.setProperty('--accent', accent);
+    }
+  }
+
+  // M6 P2: 重置为默认强调色
+  const defaultAccent = ACCENT_COLORS[0].color; // #8b5cf6
+  function resetAccent() {
+    changeAccent(defaultAccent);
   }
 
   async function sendEmail() {
@@ -1062,8 +1110,19 @@ export default function Dashboard() {
           connectionStatus={connectionStatus}
           syncing={syncing}
           lastSyncedAt={lastSyncedAt}
+          syncError={syncError}
           isMobile={isMobile}
           onMenuClick={() => setDrawerOpen(true)}
+          onRefreshClick={() => {
+            // M6: 手动同步/刷新
+            setSyncError(null);
+            loadEmails();
+            // 如果有 WebSocket 连接且选中了账号，触发 IMAP 同步
+            if (ws && ws.readyState === WebSocket.OPEN && selected && selected !== 'all') {
+              setSyncing(true);
+              ws.send(JSON.stringify({ type: 'sync', accountId: selected }));
+            }
+          }}
           onComposeClick={() => {
             setCompose(true);
             setSendError(null);
@@ -1123,6 +1182,63 @@ export default function Dashboard() {
             onDelete={deleteEmail}
             onArchive={archiveEmail}
             isMobile={isMobile}
+            // Bug #28: 连接导航和操作 props
+            hasPrev={emails.findIndex(e => e.id === selectedEmail.id) > 0}
+            hasNext={emails.findIndex(e => e.id === selectedEmail.id) < emails.length - 1}
+            onPrev={() => {
+              const idx = emails.findIndex(e => e.id === selectedEmail.id);
+              if (idx > 0) selectEmail(emails[idx - 1]);
+            }}
+            onNext={() => {
+              const idx = emails.findIndex(e => e.id === selectedEmail.id);
+              if (idx < emails.length - 1) selectEmail(emails[idx + 1]);
+            }}
+            onMarkRead={async (id, markAsReadFlag) => {
+              // markAsReadFlag: true = 标记为已读, false = 标记为未读
+              if (markAsReadFlag) {
+                await markAsRead(id);
+                // 更新当前选中邮件状态
+                if (selectedEmail?.id === id) {
+                  setSelectedEmail(prev => prev ? { ...prev, unread: false } : null);
+                }
+              } else {
+                await markAsUnread(id);
+                // 更新当前选中邮件状态
+                if (selectedEmail?.id === id) {
+                  setSelectedEmail(prev => prev ? { ...prev, unread: true } : null);
+                }
+              }
+            }}
+            onStar={async (id, starred) => {
+              // 调用星标 API
+              try {
+                const res = await fetch(`/api/messages/${id}/star`, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ starred }),
+                });
+                if (res.ok) {
+                  // 更新本地邮件列表
+                  setEmails(prev => prev.map(e => e.id === id ? { ...e, starred } : e));
+                  // 更新当前选中邮件
+                  if (selectedEmail?.id === id) {
+                    setSelectedEmail(prev => prev ? { ...prev, starred } : null);
+                  }
+                }
+              } catch (err) {
+                console.error('Star error:', err);
+              }
+            }}
+            onForward={(email) => {
+              // 打开写邮件弹窗，预填转发内容
+              setCompose(true);
+              setForm({
+                from: selected && selected !== 'all' ? selected : '',
+                to: '',
+                subject: `Fwd: ${email.subject}`,
+                content: `\n\n---------- Forwarded message ----------\nFrom: ${email.from}\nDate: ${email.date}\nSubject: ${email.subject}\n\n${email.content || email.snippet || ''}`
+              });
+            }}
           />
         )}
       </AnimatePresence>
@@ -1142,6 +1258,9 @@ export default function Dashboard() {
             onClose={() => setShowSettings(false)}
             toggleMode={toggleMode}
             changeAccent={changeAccent}
+            previewAccent={previewAccent}
+            resetAccent={resetAccent}
+            defaultAccent={defaultAccent}
             setNewTagLabel={setNewTagLabel}
             setNewTagColor={setNewTagColor}
             setTagError={setTagError}

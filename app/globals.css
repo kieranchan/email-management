@@ -1834,3 +1834,435 @@ body.noise::before {
 .email-context-menu-item.danger:hover {
     background: rgba(239, 68, 68, 0.1);
 }
+
+/* ============================================
+   M6: Account Usability - Search & Tag Filter
+   ============================================ */
+
+/* Account Search */
+.account-search-wrapper {
+    position: relative;
+    margin: 0 12px 12px;
+}
+
+.account-search-icon {
+    position: absolute;
+    left: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--text-3);
+    pointer-events: none;
+}
+
+.account-search-input {
+    width: 100%;
+    padding: 8px 32px 8px 34px;
+    background: var(--surface-1);
+    border: 1px solid var(--stroke-1);
+    border-radius: var(--r-sm);
+    color: var(--text-1);
+    font-size: 13px;
+    font-family: var(--font-ui);
+    transition: border-color var(--dur-base) var(--ease-out);
+}
+
+.account-search-input:focus {
+    outline: none;
+    border-color: var(--accent-1);
+}
+
+.account-search-input::placeholder {
+    color: var(--text-4);
+}
+
+.account-search-clear {
+    position: absolute;
+    right: 8px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: var(--surface-2);
+    border: none;
+    border-radius: 50%;
+    width: 18px;
+    height: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    color: var(--text-3);
+    transition: all var(--dur-fast) var(--ease-out);
+}
+
+.account-search-clear:hover {
+    background: var(--surface-3);
+    color: var(--text-1);
+}
+
+/* Tag Legend Section */
+.tag-legend-section {
+    margin: 0 12px 12px;
+}
+
+.tag-legend-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    padding: 6px 8px;
+    background: transparent;
+    border: none;
+    border-radius: 6px;
+    color: var(--text-3);
+    font-size: 12px;
+    cursor: pointer;
+    transition: all var(--dur-fast) var(--ease-out);
+}
+
+.tag-legend-toggle:hover {
+    background: var(--surface-1);
+    color: var(--text-2);
+}
+
+.tag-legend-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin-top: 8px;
+}
+
+.tag-legend-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px;
+    background: var(--surface-1);
+    border: 1px solid transparent;
+    border-radius: 999px;
+    font-size: 11px;
+    color: var(--text-2);
+    cursor: pointer;
+    transition: all var(--dur-fast) var(--ease-out);
+}
+
+.tag-legend-item:hover {
+    background: var(--surface-2);
+    border-color: var(--stroke-1);
+}
+
+.tag-legend-item.active {
+    background: var(--surface-2);
+    border-color: var(--accent-1);
+    color: var(--text-1);
+}
+
+.tag-legend-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.tag-legend-count {
+    color: var(--text-4);
+    font-size: 10px;
+}
+
+/* Account Tag Group */
+.account-tag-group {
+    margin-bottom: 4px;
+}
+
+.account-tag-header {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    width: 100%;
+    padding: 4px 12px;
+    background: transparent;
+    border: none;
+    color: var(--text-3);
+    font-size: 11px;
+    cursor: pointer;
+    transition: all var(--dur-fast) var(--ease-out);
+}
+
+.account-tag-header:hover {
+    color: var(--text-2);
+}
+
+.account-tag-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.account-tag-count {
+    margin-left: auto;
+    color: var(--text-4);
+}
+
+/* Current Account Highlight - Enhanced */
+.account-item.current-account {
+    background: var(--surface-2) !important;
+    border-color: var(--accent-1) !important;
+    box-shadow:
+        0 0 0 1px var(--accent-1) inset,
+        0 0 20px var(--accent-glow-1),
+        var(--elev-1) !important;
+}
+
+.account-item.current-account::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 4px;
+    bottom: 4px;
+    width: 3px;
+    border-radius: 999px;
+    background: linear-gradient(180deg, var(--accent-1), var(--accent-2));
+}
+
+/* M6: Sync Refresh Button */
+.sync-refresh-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 8px 12px;
+    background: var(--surface-1);
+    border: 1px solid var(--stroke-1);
+    border-radius: var(--r-sm);
+    color: var(--text-2);
+    cursor: pointer;
+    transition: all var(--dur-base) var(--ease-out);
+}
+
+.sync-refresh-btn:hover {
+    background: var(--surface-2);
+    border-color: var(--stroke-2);
+    color: var(--text-1);
+}
+
+.sync-refresh-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.sync-refresh-btn.syncing {
+    color: var(--accent-1);
+}
+
+.sync-refresh-btn.has-error {
+    border-color: #ef4444;
+    color: #ef4444;
+}
+
+.sync-refresh-btn.has-error:hover {
+    background: rgba(239, 68, 68, 0.1);
+}
+
+.retry-text {
+    font-size: 12px;
+    font-weight: 500;
+}
+
+/* M6: Enhanced Sync Status */
+.sync-status-text {
+    font-size: 12px;
+}
+
+.sync-time {
+    font-size: 10px;
+    color: var(--text-4);
+    margin-left: 4px;
+}
+
+.connection-status.error {
+    color: #ef4444;
+}
+
+/* M6: List Toolbar - Filter & Sort */
+.list-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 16px;
+    margin-bottom: 8px;
+    flex-wrap: wrap;
+}
+
+.toolbar-filter-btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    background: var(--surface-1);
+    border: 1px solid var(--stroke-1);
+    border-radius: 999px;
+    color: var(--text-2);
+    font-size: 12px;
+    cursor: pointer;
+    transition: all var(--dur-fast) var(--ease-out);
+}
+
+.toolbar-filter-btn:hover,
+.toolbar-filter-btn.active {
+    background: var(--surface-2);
+    border-color: var(--stroke-2);
+    color: var(--text-1);
+}
+
+.filter-badge {
+    background: var(--accent-1);
+    color: #fff;
+    font-size: 10px;
+    padding: 1px 5px;
+    border-radius: 999px;
+    font-weight: 600;
+}
+
+.filter-bar {
+    width: 100%;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    padding: 8px 0;
+    border-top: 1px solid var(--stroke-1);
+    margin-top: 8px;
+}
+
+.filter-group,
+.sort-group {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+
+.sort-label {
+    font-size: 11px;
+    color: var(--text-3);
+    margin-right: 4px;
+}
+
+.filter-chip,
+.sort-chip {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 10px;
+    background: transparent;
+    border: 1px solid var(--stroke-1);
+    border-radius: 999px;
+    color: var(--text-3);
+    font-size: 11px;
+    cursor: pointer;
+    transition: all var(--dur-fast) var(--ease-out);
+}
+
+.filter-chip:hover,
+.sort-chip:hover {
+    background: var(--surface-1);
+    color: var(--text-2);
+}
+
+.filter-chip.active,
+.sort-chip.active {
+    background: var(--surface-2);
+    border-color: var(--accent-1);
+    color: var(--text-1);
+}
+
+/* M6: Email Status Icons */
+.email-status-icons {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex-shrink: 0;
+}
+
+.email-starred-icon {
+    color: #fbbf24;
+    fill: #fbbf24;
+}
+
+.email-attachment-icon {
+    color: var(--text-3);
+}
+
+/* M6: Skeleton Loading */
+.email-skeleton-list {
+    padding: 16px;
+}
+
+.email-skeleton-item {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 14px 20px;
+    margin-bottom: 10px;
+    background: var(--surface-1);
+    border: 1px solid var(--stroke-1);
+    border-radius: var(--r-md);
+}
+
+.skeleton-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: linear-gradient(90deg, var(--surface-2) 25%, var(--surface-3) 50%, var(--surface-2) 75%);
+    background-size: 200% 100%;
+    animation: skeleton-shimmer 1.5s infinite;
+}
+
+.skeleton-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.skeleton-line {
+    height: 12px;
+    border-radius: 6px;
+    background: linear-gradient(90deg, var(--surface-2) 25%, var(--surface-3) 50%, var(--surface-2) 75%);
+    background-size: 200% 100%;
+    animation: skeleton-shimmer 1.5s infinite;
+}
+
+.skeleton-line.short {
+    width: 40%;
+}
+
+.skeleton-line.long {
+    width: 80%;
+}
+
+@keyframes skeleton-shimmer {
+    0% {
+        background-position: 200% 0;
+    }
+
+    100% {
+        background-position: -200% 0;
+    }
+}
+
+/* M6: Email Row Improvements */
+.email-from {
+    max-width: 200px;
+}
+
+.email-subject {
+    flex-shrink: 1;
+}
+
+.email-snippet {
+    flex: 1;
+    min-width: 0;
+}
+
+.email-account-tag {
+    flex-shrink: 0;
+}

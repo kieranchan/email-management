@@ -964,3 +964,145 @@ useEffect(() => {
 ---
 
 *最后更新：2026-01-13 16:15*
+
+---
+
+## M6: 可用性强化 ✅
+
+### 2026-01-13 19:00 - P0 账号可用性
+
+#### 修改文件
+
+**文件**: `app/components/SidebarAccounts.tsx`
+
+| 变更 | 说明 |
+|------|------|
+| 新增状态 `searchQuery` | 账号搜索关键字 |
+| 新增状态 `filterTag` | 标签筛选 |
+| 新增状态 `collapsedTags` | 标签折叠 |
+| 新增状态 `showTagLegend` | 标签图例显示 |
+| 新增组件 `account-search-wrapper` | 搜索框 UI |
+| 新增组件 `tag-legend-section` | 标签图例 UI |
+| 新增组件 `account-tag-group` | 标签分组 UI |
+
+**文件**: `app/globals.css`
+
+| 新增 class | 说明 |
+|------------|------|
+| `.account-search-*` | 搜索框样式 |
+| `.tag-legend-*` | 标签图例样式 |
+| `.account-tag-*` | 标签分组样式 |
+| `.account-item.current-account` | 当前账号高亮 |
+
+---
+
+### 2026-01-13 19:10 - P0 同步状态与刷新
+
+#### 修改文件
+
+**文件**: `app/components/TopBar.tsx`
+
+| 变更 | 说明 |
+|------|------|
+| 新增 prop `syncError` | 同步错误状态 |
+| 新增 prop `onRefreshClick` | 手动刷新回调 |
+| 新增函数 `formatRelativeTime` | 相对时间格式化 |
+| 新增函数 `getStatusText/Icon/Tooltip` | 统一状态显示 |
+| 新增组件 `.sync-refresh-btn` | 刷新按钮 |
+
+**文件**: `app/page.tsx`
+
+| 变更 | 说明 |
+|------|------|
+| 新增状态 `syncError` | 第 102 行 |
+| 传递 `syncError` 和 `onRefreshClick` | 第 1064-1073 行 |
+
+---
+
+### 2026-01-13 19:20 - P1 列表可读性与筛选
+
+#### 修改文件
+
+**文件**: `app/components/MessageList.tsx`
+
+| 变更 | 说明 |
+|------|------|
+| 新增状态 `filter` | 筛选类型 (all/unread/starred/attachment) |
+| 新增状态 `sort` | 排序类型 (date/from) |
+| 新增状态 `showFilterBar` | 筛选栏显示 |
+| 新增组件 `.list-toolbar` | 筛选工具栏 |
+| 新增组件 `.email-skeleton-*` | 骨架屏加载 |
+| 新增函数 `cleanSnippet` | HTML 清理 |
+
+**文件**: `app/globals.css`
+
+| 新增 class | 说明 |
+|------------|------|
+| `.list-toolbar` | 工具栏容器 |
+| `.filter-chip, .sort-chip` | 筛选/排序按钮 |
+| `.email-skeleton-*` | 骨架屏动画 |
+| `.email-status-icons` | 状态图标 |
+
+---
+
+### 2026-01-13 19:30 - P1 详情导航与操作补全
+
+#### 修改文件
+
+**文件**: `app/components/EmailDetail.tsx`
+
+| 变更 | 说明 |
+|------|------|
+| 新增 props `onPrev/onNext` | 导航回调 |
+| 新增 props `hasPrev/hasNext` | 导航状态 |
+| 新增 props `onMarkRead/onStar/onForward` | 操作回调 |
+| 新增 hook `handleKeyDown` | 键盘导航 |
+| 新增组件 `.email-nav-buttons` | 导航按钮组 |
+| 新增组件 `.email-action-buttons` | 操作按钮组 |
+
+---
+
+## 验证记录
+
+| 时间  | 验证内容                 | 结果                         |
+| ----- | ------------------------ | ---------------------------- |
+| 19:35 | `npm run lint` | ✅ 通过 (0 error, 3 warning) |
+| 19:35 | 移动端布局 (375x667) | ⏸️ 需要用户手动验证 |
+| 19:35 | 桌面端布局 (1024x768) | ⏸️ 需要用户手动验证 |
+| 21:10 | M6 P2 完成后 lint | ✅ 通过 (0 error, 3 warning) |
+
+---
+
+### M6 P2: 设置体验与快捷入口 (2026-01-13 21:10)
+
+#### 新增功能
+
+| 功能 | 实现方式 |
+|------|----------|
+| 键盘快捷键 'c' 写邮件 | `page.tsx` 新增 `handleComposeShortcut` 监听器，排除输入框和弹窗状态 |
+| 强调色 hover 预览 | `previewAccent()` 临时修改 CSS 变量，移出后恢复 |
+| 重置默认按钮 | `resetAccent()` 恢复为默认紫色 `#8b5cf6` |
+| tooltip 辅助文案 | 强调色按钮添加 `title` 属性 |
+
+#### 修改文件
+
+**文件 1**: `app/page.tsx`
+
+| 变更 | 说明 |
+|------|------|
+| 新增 `handleComposeShortcut` | 键盘快捷键 'c' 处理 |
+| 新增 `previewAccent()` | hover 预览强调色 |
+| 新增 `resetAccent()` | 重置为默认强调色 |
+| 传递新 props 到 SettingsModal | `previewAccent`, `resetAccent`, `defaultAccent` |
+
+**文件 2**: `app/components/SettingsModal.tsx`
+
+| 变更 | 说明 |
+|------|------|
+| 新增 props 接口 | `previewAccent?`, `resetAccent?`, `defaultAccent?` |
+| 桌面端强调色按钮 | 添加 `onMouseEnter/Leave` 和 title |
+| 新增"重置默认"按钮 | 当不是默认色时显示 |
+
+---
+
+*最后更新：2026-01-13 21:10*
