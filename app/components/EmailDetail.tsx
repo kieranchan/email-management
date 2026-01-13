@@ -35,9 +35,9 @@ export default function EmailDetail({
 }: EmailDetailProps) {
   return (
     <motion.div
-      initial={{ opacity: 0, x: isMobile ? 0 : 20, y: isMobile ? 20 : 0 }}
+      initial={{ opacity: 0, x: isMobile ? '100%' : 20, y: 0 }}
       animate={{ opacity: 1, x: 0, y: 0 }}
-      exit={{ opacity: 0, x: isMobile ? 0 : 20, y: isMobile ? 20 : 0 }}
+      exit={{ opacity: 0, x: isMobile ? '100%' : 20, y: 0 }}
       transition={transitionBase}
       className="glass-lg"
       style={{

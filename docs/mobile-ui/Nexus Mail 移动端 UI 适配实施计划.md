@@ -10,8 +10,8 @@
 | M1 | 组件拆分（不改逻辑） | ✅ 已完成 | 2026-01-12 |
 | M2 | 响应式基础布局 + Viewport 配置 | ✅ 已完成 | 2026-01-12 |
 | M3 | Sidebar Drawer + Bottom Tab | ✅ 已完成 | 2026-01-13 |
-| M4 | 移动端视图模式切换（list/detail/compose） | ⏳ 计划中 | 2026-01 |
-| M5 | 安全区适配 + 键盘处理 + 体验优化 | ⏳ 计划中 | 2026-02 |
+| M4 | 移动端视图模式切换（list/detail/compose） | ✅ 已完成 | 2026-01-13 |
+| M5 | 安全区适配 + 键盘处理 + 体验优化 | 🔨 进行中 | 2026-01 |
 
 ---
 
@@ -174,7 +174,7 @@
 
 ---
 
-## M4: 移动端视图模式切换（list/detail/compose）
+## M4: 移动端视图模式切换（list/detail/compose）✅ 已完成 (2026-01-13)
 
 ### 目标
 
@@ -189,32 +189,32 @@
 
 ### 任务清单
 
-- [ ] 定义 `viewMode` 状态：
+- [x] 定义 `viewMode` 状态：
 
   ```typescript
   type ViewMode = 'list' | 'detail' | 'compose' | 'settings';
   const [viewMode, setViewMode] = useState<ViewMode>('list');
   ```
 
-- [ ] 邮件详情全屏：
+- [x] 邮件详情全屏：
   - Mobile 点击邮件 → `viewMode = 'detail'`，全屏显示
   - 顶部返回按钮 → `viewMode = 'list'`
   - 操作按钮（归档/删除/已读）放顶部右侧或底部操作条
-- [ ] 写邮件全屏：
+- [x] 写邮件全屏：
   - Mobile 点击 FAB → `viewMode = 'compose'`，全屏显示
   - 顶部固定：取消/发送按钮
   - 表单区可滚动
-- [ ] Desktop 保持 modal：使用条件渲染，`isMobile ? 全屏 : modal`
-- [ ] 页面切换动画：使用 Framer Motion `AnimatePresence` 实现滑入滑出
-- [ ] 浏览器返回：监听 `popstate`，Mobile 返回时切换 `viewMode`
+- [x] Desktop 保持 modal：使用条件渲染，`isMobile ? 全屏 : modal`
+- [x] 页面切换动画：使用 Framer Motion `AnimatePresence` 实现滑入滑出
+- [x] 浏览器返回：监听 `popstate`，Mobile 返回时切换 `viewMode`
 
 ### 验收标准
 
-- [ ] 移动端点击邮件进入全屏详情，返回回到列表
-- [ ] 移动端写邮件为全屏，取消/发送操作顺畅
-- [ ] 桌面端保持 modal 形式，无变化
-- [ ] 页面切换有平滑动画
-- [ ] 浏览器返回键行为正确
+- [x] 移动端点击邮件进入全屏详情，返回回到列表
+- [x] 移动端写邮件为全屏，取消/发送操作顺畅
+- [x] 桌面端保持 modal 形式，无变化
+- [x] 页面切换有平滑动画
+- [x] 浏览器返回键行为正确
 
 ---
 
@@ -232,18 +232,18 @@
 
 ### 任务清单
 
-- [ ] 安全区适配：
+- [x] 安全区适配：
 
   ```css
-  .topbar { padding-top: env(safe-area-inset-top); }
+  .topbar { padding-top: env(safe-area-inset-top); height: calc(56px + env(safe-area-inset-top)); }
+  .view-header { padding-top: env(safe-area-inset-top); height: calc(56px + env(safe-area-inset-top)); }
   .bottom-tab { padding-bottom: env(safe-area-inset-bottom); }
-  .content-scroll { padding-bottom: calc(72px + env(safe-area-inset-bottom)); }
   ```
 
-- [ ] 键盘处理：
-  - 监听 `visualViewport.resize` 事件
-  - 写邮件时键盘弹起，发送/取消按钮保持可见
-  - 避免键盘遮挡输入框
+- [x] 键盘处理：
+  - 新增 `useVisualViewport` Hook 监听 `visualViewport.resize` 事件
+  - 写邮件时键盘弹起，动态调整底部 padding
+  - 发送/取消按钮保持可见
 - [ ] 邮件行优化（Mobile）：
   - 两行布局：第一行 头像+From+时间；第二行 Subject+Snippet
   - All Accounts 模式添加 account chip
@@ -255,8 +255,8 @@
 
 ### 验收标准
 
-- [ ] iPhone 刘海/底部横条区域正确避让
-- [ ] 写邮件时键盘弹出不遮挡发送按钮
+- [x] iPhone 刘海/底部横条区域正确避让
+- [x] 写邮件时键盘弹出不遮挡发送按钮
 - [ ] 邮件行触控友好，最小高度 48px
 - [ ] 批量操作不挤压列表内容
 - [ ] iPhone Safari / Android Chrome 均测试通过
@@ -305,3 +305,6 @@
 | 2026-01-13 | Bug #12-14 | 修复 FAB z-index 穿透、TopBar 类型、SenderDropdown 键盘无障碍 |
 | 2026-01-13 | Feature #15 | 全局 Escape 键层级退出：邮件详情 → 写邮件 → 设置 → 抽屉 |
 | 2026-01-13 | Feature #16 | 移除模态框背景渐变动画，改为立即显示 |
+| 2026-01-13 | M4 | 完成移动端视图切换：详情/写信/设置全屏显示，支持浏览器返回键导航 |
+| 2026-01-13 | Bug #21 | 修复模态框退出动画背景延迟，优化 Overlay 淡出和 Card 退出动画 |
+| 2026-01-13 | M5 部分 | 完成 safe-area-inset-top 适配（Bug #22），新增 useVisualViewport Hook 处理键盘（Bug #23） |

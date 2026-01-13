@@ -10,7 +10,7 @@
 | 状态       | 数量 |
 | ---------- | ---- |
 | 🔴 待修复 | 0 |
-| 🟢 已修复 | 19 |
+| 🟢 已修复 | 23 |
 | 🟡 进行中 | 0 |
 
 ---
@@ -28,6 +28,47 @@
 ---
 
 ## 🟢 已修复
+
+### Bug #23: 缺少虚拟键盘处理
+
+**发现日期**：2026-01-13
+**来源**：GPT Code Review
+
+**问题描述**：
+在移动端写邮件（ComposeModal）时，当虚拟键盘弹出时，底部的"发送"/"丢弃"按钮可能被键盘遮挡，用户无法点击。
+
+**解决方案**：
+
+1. 新增 `useVisualViewport` Hook 监听视口变化
+2. 计算键盘高度，动态调整 Modal 底部 padding
+
+**相关文件**：
+
+- `app/components/ComposeModal.tsx`
+- `app/hooks/useVisualViewport.ts` (新增)
+
+**状态**：🟢 已修复 (2026-01-13)
+
+---
+
+### Bug #22: Safe-area 顶部安全区未处理
+
+**发现日期**：2026-01-13
+**来源**：GPT Code Review
+
+**问题描述**：
+在带刘海屏（notch）的 iOS 设备上，TopBar 和全屏视图的顶部内容会被状态栏遮挡。
+
+**解决方案**：
+
+1. `.topbar` 添加 `padding-top: env(safe-area-inset-top, 0px)` 和动态高度
+2. `.view-header` 添加 `padding-top: env(safe-area-inset-top, 0px)` 和动态高度
+
+**相关文件**：`app/globals.css`
+
+**状态**：🟢 已修复 (2026-01-13)
+
+---
 
 ### Bug #1: SaveStatus 类型不匹配导致 TS 编译错误
 
@@ -603,6 +644,68 @@ lastSyncedAt: string | null;
 - `app/components/SettingsModal.tsx` (第 61-62 行)
 
 **状态**：🟢 已修复 (2026-01-13 02:03)
+
+---
+
+### 🟢 已修复
+
+### Bug #20: ComposeModal 按钮缺少无障碍标签
+
+**发现日期**：2026-01-13
+**来源**：Code Review
+
+**问题描述**：
+在 Code Review 中发现，`ComposeModal` 组件的图标按钮缺少 `aria-label` 或 `title` 属性，导致屏幕阅读器无法识别按钮功能。
+
+涉及按钮：
+
+1. 移动端全屏模式下的"返回"按钮 (ArrowLeft)
+2. 桌面端模态框右上角的"关闭"按钮 (X)
+
+**影响范围**：
+
+- 移动端和桌面端
+- 辅助功能 (Accessibility) 体验受损
+
+**解决方案**：
+为相关按钮添加 `aria-label` 属性。
+
+```tsx
+// 移动端返回按钮
+<button aria-label="返回">...</button>
+
+// 桌面端关闭按钮
+<button aria-label="关闭">...</button>
+```
+
+**相关文件**：`app/components/ComposeModal.tsx`
+
+**状态**：🟢 已修复 (2026-01-13)
+
+---
+
+### Bug #21: 模态框关闭动画背景延迟
+
+**发现日期**：2026-01-13
+**来源**：用户反馈
+
+**问题描述**：
+用户反馈 "取消弹窗时候的动画太长了，弹窗都取消了，结果背景还没取消"。
+
+**原因分析**：
+当前模态框 Overlay 设置为 `exit={{ opacity: 1 }}`（不消失），需等待子元素（Modal Card）的 Spring 动画彻底结束才会 Unmount。Spring 动画往往有不可见的"长尾"（settling time），导致视觉上卡片已消失，但背景遮罩仍停留约 0.5-1秒。
+
+**解决方案**：
+
+1. **Overlay**: 添加淡出动画 `exit={{ opacity: 0 }}`，`duration: 0.2`。
+2. **Modal Card**: 退出时强制使用短时间的 easeOut 动画，替代 Spring 动画。
+
+**相关文件**：
+
+- `app/components/ComposeModal.tsx`
+- `app/components/SettingsModal.tsx`
+
+**状态**：🟢 已修复 (2026-01-13)
 
 ---
 

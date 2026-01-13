@@ -1408,6 +1408,8 @@ body.noise::before {
     /* TopBar mobile adjustments */
     .topbar {
         padding: 0 12px;
+        padding-top: env(safe-area-inset-top, 0px);
+        height: calc(56px + env(safe-area-inset-top, 0px));
     }
 }
 
@@ -1468,6 +1470,29 @@ body.noise::before {
     overflow-y: auto;
     display: flex;
     flex-direction: column;
+}
+
+/* === M4: Mobile Fullscreen View Header === */
+.view-header {
+    min-height: 56px;
+    height: calc(56px + env(safe-area-inset-top, 0px));
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 16px;
+    padding-top: env(safe-area-inset-top, 0px);
+    border-bottom: 1px solid var(--stroke-1);
+    background: var(--surface-1);
+    flex-shrink: 0;
+    /* Fixed positioning handled by parent container */
+}
+
+.view-header>span {
+    flex: 1;
+    font-weight: 600;
+    font-size: 16px;
+    color: var(--text-1);
+    text-align: center;
 }
 
 /* Bottom Tab */

@@ -768,3 +768,95 @@ initial={{ opacity: 1 }}
 
 - `app/components/ComposeModal.tsx` (第 50 行)
 - `app/components/SettingsModal.tsx` (第 59 行)
+
+---
+
+## M4: 移动端视图模式切换 ✅
+
+### 2026-01-13 14:00 - 核心视图状态管理
+
+**目标**：移动端使用单屏视图切换替代桌面端的 modal 弹窗，实现自然的导航体验，并支持浏览器原生返回键。
+
+#### 修改文件
+
+**文件**：`app/page.tsx`
+
+| 变更 | 说明 |
+|------|------|
+| 新增状态 | `viewMode` ('list' \| 'detail' \| 'compose' \| 'settings') |
+| 状态同步 | 在 `useEffect` 中将 `selectedEmail`, `compose`, `showSettings` 变更同步到 `viewMode` |
+| 历史记录 | `window.history.pushState` 并在 `popstate` 事件中处理返回逻辑 |
+| 视图渲染 | 移动端根据 `viewMode` 渲染全屏组件，桌面端维持 Modal/Panel |
+
+**代码片段**：
+
+```typescript
+// Browser back button support
+useEffect(() => {
+  if (!isMobile) return;
+  const handlePopState = () => {
+    if (viewMode === 'detail') setSelectedEmail(null);
+    else if (viewMode === 'compose') setCompose(false);
+    else if (viewMode === 'settings') setShowSettings(false);
+  };
+  if (viewMode !== 'list') {
+    window.history.pushState({ view: viewMode }, '');
+  }
+  window.addEventListener('popstate', handlePopState);
+  return () => window.removeEventListener('popstate', handlePopState);
+}, [isMobile, viewMode]);
+```
+
+### 2026-01-13 14:15 - 组件全屏化改造
+
+#### ComposeModal & SettingsModal
+
+**文件**：`app/components/ComposeModal.tsx`, `app/components/SettingsModal.tsx`
+
+| 变更 | 说明 |
+|------|------|
+| 全屏样式 | `fixed inset-0 z-200 bg-white` |
+| 顶部 Header | `.view-header` (56px) 包含返回按钮和标题 |
+| 动画 | 移动端 `x: '100%'` (右侧滑入)，桌面端保持 scale/opacity 动画 |
+| 滚动容器 | 内容区域 `flex: 1, overflow-y: auto` |
+
+#### EmailDetail
+
+**文件**：`app/components/EmailDetail.tsx`
+
+| 变更 | 说明 |
+|------|------|
+| 动画调整 | 移动端改为右侧滑入 `x: '100%'` |
+| 返回支持 | 顶部增加返回按钮，点击调用 `setSelectedEmail(null)` |
+
+#### Globals CSS
+
+**文件**：`app/globals.css`
+
+新增 `.view-header` 样式，统一移动端全屏视图的顶部导航栏视觉。
+
+```css
+.view-header {
+    height: 56px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 16px;
+    border-bottom: 1px solid var(--stroke-1);
+    background: var(--surface-1);
+    flex-shrink: 0;
+}
+```
+
+### 2026-01-13 14:30 - 自动化验证 (Playwright)
+
+**验证场景**：
+
+1. **移动端详情页**：点击邮件 -> 全屏显示 -> 点击返回按钮 -> 返回列表 [PASS]
+2. **移动端写邮件**：点击 FAB -> 全屏写信 -> 点击返回 -> 返回列表 [PASS]
+3. **移动端设置**：抽屉菜单 -> 设置 -> 全屏设置页 -> 返回 -> 返回列表 [PASS]
+4. **桌面端回归**：模态框和右侧详情面板显示正常，无布局破坏 [PASS]
+5. **响应式切换**：移动端打开设置 -> 调整窗口变大 -> 自动变为桌面端 Modal [PASS]
+
+**验证截图归档**：
+`C:\Users\86130\.gemini\antigravity\brain\722c108e-9140-4270-9f71-fece46376fd8\`

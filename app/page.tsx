@@ -104,6 +104,10 @@ export default function Dashboard() {
   const isMobile = useIsMobile();
   const [drawerOpen, setDrawerOpen] = useState(false);
 
+  // M4: Mobile view mode (list/detail/compose/settings)
+  type ViewMode = 'list' | 'detail' | 'compose' | 'settings';
+  const [viewMode, setViewMode] = useState<ViewMode>('list');
+
   // P7: 节流刷新，避免消息风暴
   const lastRefreshRef = useRef<number>(0);
   const REFRESH_THROTTLE = 4000; // 4 秒节流
@@ -157,6 +161,7 @@ export default function Dashboard() {
     }, 2000); // 2s debounce
 
     return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [form, compose, draftId]);
 
   // Reset state when closing
@@ -189,6 +194,40 @@ export default function Dashboard() {
     document.addEventListener('keydown', handleGlobalEscape);
     return () => document.removeEventListener('keydown', handleGlobalEscape);
   }, [hasSelectedEmail, compose, showSettings, drawerOpen]);
+
+  // M4: Sync existing state to viewMode (mobile only)
+  useEffect(() => {
+    if (!isMobile) return;
+
+    if (selectedEmail) setViewMode('detail');
+    else if (compose) setViewMode('compose');
+    else if (showSettings) setViewMode('settings');
+    else setViewMode('list');
+  }, [isMobile, selectedEmail, compose, showSettings]);
+
+  // M4: Browser back button support (mobile only)
+  useEffect(() => {
+    if (!isMobile) return;
+
+    const handlePopState = () => {
+      // On back, return to list view
+      if (viewMode === 'detail') {
+        setSelectedEmail(null);
+      } else if (viewMode === 'compose') {
+        setCompose(false);
+      } else if (viewMode === 'settings') {
+        setShowSettings(false);
+      }
+    };
+
+    // Push state when entering non-list views
+    if (viewMode !== 'list') {
+      window.history.pushState({ view: viewMode }, '');
+    }
+
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, [isMobile, viewMode]);
 
   // P7: 节流刷新函数
   const throttledRefresh = useCallback(() => {
@@ -988,8 +1027,8 @@ export default function Dashboard() {
         />
       </div>
 
-      {/* Mobile: Bottom Tab (hidden when drawer, settings, or compose modal is open) */}
-      {isMobile && !drawerOpen && !showSettings && !compose && (
+      {/* Mobile: Bottom Tab (only show in list view) */}
+      {isMobile && viewMode === 'list' && !drawerOpen && (
         <BottomTab
           activeFolder={activeFolder}
           setActiveFolder={setActiveFolder}
@@ -1037,6 +1076,7 @@ export default function Dashboard() {
             setTagError={setTagError}
             addTag={addTag}
             deleteTag={deleteTag}
+            isMobile={isMobile}
           />
         )}
       </AnimatePresence>
@@ -1054,6 +1094,7 @@ export default function Dashboard() {
             onClose={() => setCompose(false)}
             onSend={sendEmail}
             onDiscard={discardDraft}
+            isMobile={isMobile}
           />
         )}
       </AnimatePresence>
