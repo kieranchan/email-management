@@ -108,8 +108,8 @@ docker compose restart nginx
 
 ## 已解决的问题
 
-| 问题 | 原因 | 解决方案 |
-|------|------|----------|
+| 问题                 | 原因                      | 解决方案                    |
+| -------------------- | ------------------------- | --------------------------- |
 | Dockerfile 构建失败 | `mkdir`/`chown` 缺少 `RUN` | 添加 `RUN` 前缀 |
 | Node.js 版本错误 | Next.js 16 需要 Node 20+ | 改用 `node:20-alpine` |
 | Prisma 引擎不兼容 | Alpine + OpenSSL 3.0 | 添加 `binaryTargets` |
@@ -176,7 +176,7 @@ Host email-tunnel
 
 ### 工作原理
 
-```
+```text
 你的电脑 → 日本 VPS (13.192.46.187) → CloudCone (66.154.127.152)
            ↑ 低延迟（亚洲骨干网）      ↑ 直连（稳定）
 ```

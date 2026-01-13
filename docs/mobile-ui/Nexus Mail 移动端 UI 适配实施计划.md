@@ -1,4 +1,4 @@
-# Nexus Mail 移动端 UI 适配实施计划
+﻿# Nexus Mail 移动端 UI 适配实施计划
 
 > 基于《邮箱管理员后台 - 移动端 UI 适配方案》与现有 admin-dashboard 代码基线（Next.js 16 + React 19），整合成一份可执行的移动端适配落地路线。
 

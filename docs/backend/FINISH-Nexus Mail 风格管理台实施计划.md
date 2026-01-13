@@ -5,7 +5,7 @@
 ## 进度总览
 
 | 阶段 | 任务 | 状态 | 完成日期 |
-|:----:|------|:----:|:--------:|
+|: --- :| --- |: --- :|: --- :|
 | P0 | 全局样式落地 | ✅ 完成 | 2026-01-10 |
 | P1 | 组件状态对齐 S1 | ✅ 完成 | 2026-01-10 |
 | P2 | 数据模型加固 | ✅ 完成 | 2026-01-10 |
@@ -75,7 +75,7 @@
 ### 状态表
 
 | 组件 | default | hover | selected | focus | unread |
-|------|---------|-------|----------|-------|--------|
+| --- | --- | --- | --- | --- | --- |
 | AccountItem | 透明 | surface-1 + stroke-2 + elev-1 | surface-2 + glow | ring | - |
 | FolderItem | text-3 | text-2 + surface-1 | text-1 + surface-2 + stroke-2 | ring | - |
 | MessageRow | glass + stroke-1 | translateY(-1px) + elev-2 + stroke-2 | surface-2 + glow | ring | text-1 + weight 600 + unread-bar |
@@ -254,7 +254,7 @@ model Email {
 **实现细节：**
 
 | 文件 | 变更 |
-|------|------|
+| --- | --- |
 | `worker/imap-worker.ts` | 新增 `markSeen`、`moveToArchive`、`restoreFromArchive`、`deleteEmail` 方法 |
 | `app/api/messages/[id]/seen/route.ts` | 返回 `uid` + `accountId` 供前端同步 |
 | `app/api/actions/archive/route.ts` | 返回 `uid` + `accountId` 供前端同步 |
@@ -269,7 +269,7 @@ model Email {
 **实现细节：**
 
 | 文件 | 变更 |
-|------|------|
+| --- | --- |
 | `app/globals.css` | `.message-row` 添加 `content-visibility: auto` |
 | `app/page.tsx` | iframe 内添加图片懒加载脚本 |
 
@@ -281,7 +281,7 @@ model Email {
 **实现细节：**
 
 | 文件 | 变更 |
-|------|------|
+| --- | --- |
 | `app/page.tsx` | 新增 `selectedIds`/`batchProgress`/`toastMessage` 状态 |
 | `app/page.tsx` | 批量操作栏：进度条 + loading 指示器 |
 | `app/page.tsx` | Toast 支持自定义消息（如"✅ 已标记 3 封邮件为已读"） |
@@ -293,7 +293,7 @@ model Email {
 **已实施的优化：**
 
 | 优化点 | 说明 | 效果 |
-|--------|------|------|
+| --- | --- | --- |
 | ✅ **增量同步** | 基于数据库最大 UID 增量拉取 | 减少 90% 数据传输 |
 | ✅ **延迟加载** | 列表同步不获取 source，详情页按需获取 | 避免解析开销 |
 | ✅ **日本跳板 SSH** | 隧道通过日本 VPS 中转 | 连接成功率 100% |
@@ -360,7 +360,7 @@ model Email {
 ## 更新日志
 
 | 日期 | 阶段 | 变更内容 |
-|------|------|----------|
+| --- | --- | --- |
 | **2026-01-12** | **P7** | **修复 Bug #16**：切换账号重复请求 - 节流 2s→4s、`loadEmails` 记录时间戳、`sync_result` 不再刷新 |
 | **2026-01-12** | **P7** | **修复 Bug #15**：Code Review 发现的 4 个缺陷 - `sync_result` 添加 `accountId`、`manualSync` 更新 `lastSyncedAt`、新增 `getAccountEmail()`、`setSyncing(true)` |
 | **2026-01-12** | **运维** | **修复 Bug #14**：外部邮件无法投递 - 分离 Web 与 MX 解析，建立 `mx.oragenode.online` 直连美国 IP |

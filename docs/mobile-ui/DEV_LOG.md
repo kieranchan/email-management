@@ -17,7 +17,7 @@
 **新增内容**（第 843-1213 行）：
 
 | 类别 | 新增 class |
-|------|------------|
+| ---- | ---------- |
 | Sidebar | `.sidebar`, `.sidebar-header`, `.sidebar-logo`, `.sidebar-logo-icon`, `.sidebar-logo-text`, `.sidebar-settings-btn`, `.sidebar-accounts`, `.sidebar-section-title`, `.sidebar-nav` |
 | 账号项 | `.account-item-content`, `.account-item-inner`, `.account-avatar`, `.account-avatar-square`, `.account-info`, `.account-name`, `.account-email`, `.account-tag`, `.tag-dropdown`, `.tag-option`, `.tag-color-dot` |
 | 文件夹项 | `.folder-item-content`, `.folder-icon`, `.folder-label` |
@@ -37,7 +37,7 @@
 **新增内容**（第 1214-1354 行）：
 
 | 类别 | 新增 class |
-|------|------------|
+| ---- | ---------- |
 | Main Area | `.main-area` |
 | 邮件行 | `.message-row-content`, `.message-avatar`, `.message-content`, `.message-header`, `.message-from`, `.message-time`, `.message-subject-row`, `.message-subject`, `.message-preview` |
 | 未读指示 | `.unread-indicator` |
@@ -55,7 +55,7 @@
 **变更**：
 
 | 行号 | 修改前 | 修改后 |
-|------|--------|--------|
+| ---- | ------ | ------ |
 | 837 | `<div className="glass-lg" style={{ width: 260, ... }}>` | `<div className="glass-lg sidebar">` |
 | 839 | `<div style={{ height: 64, display: 'flex', ... }}>` | `<div className="sidebar-header">` |
 | 840 | `<div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>` | `<div className="sidebar-logo">` |
@@ -76,7 +76,7 @@
 **变更**：
 
 | 行号 | 修改前 | 修改后 |
-|------|--------|--------|
+| ---- | ------ | ------ |
 | 974 | `<div style={{ height: 64, display: 'flex', ... }}>` | `<div className="topbar">` |
 | 975 | `<div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>` | `<div className="topbar-title">` |
 | 980 | `<span style={{ fontSize: 13, color: 'var(--text-3)', ... }}>` | `<span className="topbar-account-badge">` |
@@ -95,15 +95,15 @@
 **变更**：
 
 | 行号 | 修改前 | 修改后 |
-|------|--------|--------|
+| ---- | ------ | ------ |
 | 972 | `<div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, position: 'relative' }}>` | `<div className="main-area">` |
 
 ---
 
 ## 验证记录
 
-| 时间 | 验证内容 | 结果 |
-|------|----------|------|
+| 时间  | 验证内容                 | 结果                         |
+| ----- | ------------------------ | ---------------------------- |
 | 20:43 | 桌面端布局（1920x1080） | ✅ 通过 |
 | 20:44 | 移动端布局（375x667） | ⚠️ Sidebar 挤压（M3 阶段解决） |
 | 20:56 | 桌面端布局复验（1400x900） | ✅ 通过 |
@@ -130,8 +130,8 @@
 
 **文件**：`app/page.tsx`
 
-| 位置 | 修改内容 |
-|------|----------|
+| 位置      | 修改内容                                                      |
+| --------- | ------------------------------------------------------------- |
 | 第 6 行 | 新增 `import SidebarFolders, { FolderType } from './components/SidebarFolders'` |
 | 第 5 行 | 移除 `Inbox`, `FileText` 从 lucide-react import |
 | 第 277 行 | 移除 `type FolderType` 定义（使用组件导出的） |
@@ -141,8 +141,8 @@
 
 #### 验证结果
 
-| 检查项 | 结果 |
-|--------|------|
+| 检查项           | 结果     |
+| ---------------- | -------- |
 | `npm run lint` | ✅ 通过 |
 
 ---
@@ -163,8 +163,8 @@
 
 **文件**：`app/page.tsx`
 
-| 位置 | 修改内容 |
-|------|----------|
+| 位置        | 修改内容                                  |
+| ----------- | ----------------------------------------- |
 | 第 7 行 | 新增 `import TopBar from './components/TopBar'` |
 | 第 946-987 行 | 替换为 `<TopBar ... />` 组件调用 |
 
@@ -198,8 +198,8 @@
 
 **文件**：`app/page.tsx`
 
-| 位置 | 修改内容 |
-|------|----------|
+| 位置          | 修改内容                                                |
+| ------------- | ------------------------------------------------------- |
 | 第 8 行 | 新增 `import SidebarAccounts from './components/SidebarAccounts'` |
 | 第 5 行 | 移除 `Layers` 从 lucide-react import |
 | 第 853-938 行 | 替换为 `<SidebarAccounts ... />` 组件调用 |
@@ -267,8 +267,8 @@
 
 **文件**：`app/page.tsx`
 
-| 位置 | 修改内容 |
-|------|----------|
+| 位置           | 修改内容                                       |
+| -------------- | ---------------------------------------------- |
 | 第 10 行 | 新增 `import ComposeModal from './components/ComposeModal'` |
 | 第 1233-1293 行 | 替换为 `<ComposeModal ... />` 组件调用 |
 
@@ -292,8 +292,8 @@
 
 **文件**：`app/page.tsx`
 
-| 位置 | 修改内容 |
-|------|----------|
+| 位置          | 修改内容                                          |
+| ------------- | ------------------------------------------------- |
 | 第 11 行 | 新增 `import SettingsModal from './components/SettingsModal'` |
 | 第 5 行 | 移除 `X`, `Moon`, `Sun` 从 lucide-react import |
 | 第 707 行 | 移除 `transitionModal` 变量 |
@@ -315,8 +315,8 @@
 
 **已拆分组件**（6/7）：
 
-| 组件 | 行数 | 功能 |
-|------|:----:|------|
+| 组件             | 行数 | 功能                   |
+| ---------------- | :--: | ---------------------- |
 | SidebarFolders | 45 | 文件夹导航 |
 | TopBar | 63 | 顶栏标题和操作 |
 | SidebarAccounts | 133 | 账号列表和 tag 编辑 |
@@ -343,8 +343,8 @@
 
 **文件**：`app/page.tsx`
 
-| 位置 | 修改内容 |
-|------|----------|
+| 位置          | 修改内容                                                     |
+| ------------- | ------------------------------------------------------------ |
 | 第 12 行 | 新增 `import EmailDetail from './components/EmailDetail'` |
 | 第 5 行 | 移除 `Send`, `Archive`, `ArrowLeft`, `Trash2` 从 lucide-react import |
 | 第 707 行 | 移除 `transitionBase` 变量 |
@@ -366,8 +366,8 @@
 
 **已拆分组件**（7/7）：
 
-| 组件 | 行数 | 功能 |
-|------|:----:|------|
+| 组件             | 行数 | 功能                   |
+| ---------------- | :--: | ---------------------- |
 | SidebarFolders | 45 | 文件夹导航 |
 | TopBar | 63 | 顶栏标题和操作 |
 | SidebarAccounts | 133 | 账号列表和 tag 编辑 |
@@ -388,8 +388,8 @@
 
 **文件**：`app/layout.tsx`
 
-| 位置 | 修改内容 |
-|------|----------|
+| 位置         | 修改内容                                  |
+| ------------ | ----------------------------------------- |
 | 第 1 行 | 新增 `Viewport` 类型导入 |
 | 第 9-18 行 | 新增 `export const viewport` 配置 |
 
@@ -410,8 +410,8 @@ export const viewport: Viewport = {
 
 **文件**：`app/globals.css`
 
-| 位置 | 修改内容 |
-|------|----------|
+| 位置          | 修改内容                                                                |
+| ------------- | ----------------------------------------------------------------------- |
 | 第 62-70 行 | 新增 `--app-h` CSS 变量和 `@supports (height: 100dvh)` 检测 |
 | 第 537-565 行 | 更新 `.app-shell` 使用 `var(--app-h)`，新增移动端媒体查询断点 |
 
@@ -450,8 +450,8 @@ export const viewport: Viewport = {
 
 **文件**：`app/page.tsx`
 
-| 行号 | 修改前 | 修改后 |
-|------|--------|--------|
+| 行号 | 修改前                                                | 修改后                                  |
+| ---- | ----------------------------------------------------- | --------------------------------------- |
 | 10 | `import ComposeModal from './components/ComposeModal'` | `import ComposeModal, { type SaveStatus } from './components/ComposeModal'` |
 | 80 | `useState<'saved' \| 'saving' \| 'error' \| null>(null)` | `useState<SaveStatus>('idle')` |
 | 159 | `setSaveStatus(null)` | `setSaveStatus('idle')` |
@@ -464,8 +464,8 @@ export const viewport: Viewport = {
 
 **文件**：`app/page.tsx`
 
-| 行号 | 修改内容 |
-|------|----------|
+| 行号      | 修改内容                                       |
+| --------- | ---------------------------------------------- |
 | 195 | 新增 `let isMounted = true;` 守卫变量 |
 | 257-265 | `onclose` 中添加 `if (!isMounted) return;` 守卫 |
 | 277 | cleanup 中新增 `isMounted = false;` |
@@ -478,8 +478,8 @@ export const viewport: Viewport = {
 
 **文件**：`app/page.tsx`
 
-| 行号 | 修改内容 |
-|------|----------|
+| 行号        | 修改内容                                                                      |
+| ----------- | ----------------------------------------------------------------------------- |
 | 416-476 | 将 fetch 逻辑包裹在 `try { ... } catch { ... } finally { setLoading(false); }` 中 |
 
 **原因**：网络错误时 `setLoading(false)` 永远不会执行，导致 loading 状态永远为 `true`，UI 卡住。
@@ -490,8 +490,8 @@ export const viewport: Viewport = {
 
 **文件**：`app/components/EmailDetail.tsx`
 
-| 行号 | 修改内容 |
-|------|----------|
+| 行号        | 修改内容                       |
+| ----------- | ------------------------------ |
 | 153-159 | 删除 `img[data-lazy-src]` 相关 CSS |
 | 177-198 | 删除整个 `<script>` 块 |
 
@@ -648,8 +648,8 @@ export const viewport: Viewport = {
 
 #### 新增文件
 
-| 文件 | 说明 |
-|------|------|
+| 文件                                 | 说明                                                          |
+| ------------------------------------ | ------------------------------------------------------------- |
 | `app/hooks/useMediaQuery.ts` | 媒体查询 Hook，使用 `useSyncExternalStore` 实现响应式检测 |
 | `app/components/MobileDrawer.tsx` | 移动端侧滑抽屉组件，包含 backdrop 和滑入动画 |
 | `app/components/BottomTab.tsx` | 底部导航栏 + FAB 悬浮按钮 |
@@ -667,16 +667,16 @@ export const viewport: Viewport = {
 
 **文件**：`app/components/TopBar.tsx`
 
-| 变更 | 说明 |
-|------|------|
+| 变更       | 说明                                       |
+| ---------- | ------------------------------------------ |
 | 新增 props | `isMobile?: boolean`, `onMenuClick?: () => void` |
 | 新增功能 | 移动端显示 ☰ 菜单按钮 |
 | 条件渲染 | 移动端隐藏"写邮件"按钮（使用 FAB 替代） |
 
 **文件**：`app/page.tsx`
 
-| 变更 | 说明 |
-|------|------|
+| 变更          | 说明                                                  |
+| ------------- | ----------------------------------------------------- |
 | 新增 imports | `MobileDrawer`, `BottomTab`, `useIsMobile` |
 | 新增状态 | `isMobile`, `drawerOpen` |
 | 条件渲染 | 桌面端显示 Sidebar，移动端显示 Drawer + BottomTab |
@@ -691,8 +691,8 @@ export const viewport: Viewport = {
 
 #### 验证结果
 
-| 检查项 | 结果 |
-|--------|------|
+| 检查项                   | 结果                          |
+| ------------------------ | ----------------------------- |
 | `npm run lint` | ✅ 通过（仅 1 个已知 warning） |
 | 桌面端布局 (≥768px) | ✅ Sidebar 正常显示 |
 | 移动端布局 (<768px) | ✅ BottomTab + FAB 显示 |
