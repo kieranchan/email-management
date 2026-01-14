@@ -33,8 +33,8 @@ WORKDIR /app
 ENV NODE_ENV production
 ENV NEXT_TELEMETRY_DISABLED 1
 
-# Install OpenSSL for Prisma compatibility
-RUN apk add --no-cache openssl openssl-dev
+# Install OpenSSL for Prisma compatibility + sqlite3 for DB initialization
+RUN apk add --no-cache openssl openssl-dev sqlite
 
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs
@@ -45,12 +45,19 @@ COPY --from=builder /app/public ./public
 RUN mkdir .next
 RUN chown nextjs:nodejs .next
 
+# Create data directory with correct permissions
+RUN mkdir -p /app/data && chown nextjs:nodejs /app/data
+
 # Automatically leverage output traces to reduce image size
 # https://nextjs.org/docs/advanced-features/output-file-tracing
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 COPY --from=builder --chown=nextjs:nodejs /app/prisma ./prisma
-# dev.db is mounted as volume at runtime, no need to copy 
+
+# Copy entrypoint script and default config
+COPY --chown=nextjs:nodejs docker-entrypoint.sh /app/
+COPY --chown=nextjs:nodejs data/tags.json /app/data/tags.json
+RUN chmod +x /app/docker-entrypoint.sh
 
 USER nextjs
 
@@ -60,6 +67,6 @@ ENV PORT 3000
 # set hostname to localhost
 ENV HOSTNAME "0.0.0.0"
 
-# server.js is created by next build from the standalone output
-# https://nextjs.org/docs/pages/api-reference/next-config-js/output
+# Use entrypoint for initialization, then run server
+ENTRYPOINT ["/app/docker-entrypoint.sh"]
 CMD ["node", "server.js"]

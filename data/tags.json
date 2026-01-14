@@ -1,22 +1,27 @@
 [
   {
+    "id": "vip",
+    "label": "VIP",
+    "color": "#8b5cf6"
+  },
+  {
     "id": "important",
     "label": "重要",
-    "color": "#a78bfa"
+    "color": "#ef4444"
   },
   {
     "id": "normal",
     "label": "普通",
-    "color": "#60a5fa"
+    "color": "#9ca3af"
   },
   {
     "id": "low",
     "label": "低优先",
-    "color": "#34d399"
+    "color": "#6b7280"
   },
   {
     "id": "admin",
     "label": "管理",
-    "color": "#ef4444"
+    "color": "#f59e0b"
   }
 ]
