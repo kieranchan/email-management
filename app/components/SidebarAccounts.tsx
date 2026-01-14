@@ -59,8 +59,8 @@ export default function SidebarAccounts({
             // 搜索筛选
             const query = searchQuery.toLowerCase();
             const matchesSearch = !query || 
-                a.name.toLowerCase().includes(query) || 
-                a.email.toLowerCase().includes(query);
+                (a.name?.toLowerCase() || '').includes(query) || 
+                (a.email?.toLowerCase() || '').includes(query);
             
             // 标签筛选
             const matchesTag = !filterTag || a.tag === filterTag;

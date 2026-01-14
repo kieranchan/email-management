@@ -766,7 +766,7 @@ export default function Dashboard() {
 
         // P7: 发送成功后，检查接收方是否是系统内账号，如果是则触发同步
         const recipientEmail = form.to.trim().toLowerCase();
-        const recipientAccount = accounts.find(a => a.email.toLowerCase() === recipientEmail);
+        const recipientAccount = accounts.find(a => a.email?.toLowerCase() === recipientEmail);
         if (recipientAccount && ws && ws.readyState === WebSocket.OPEN) {
           // 延迟 2 秒后触发接收方同步，给邮件服务器处理时间
           setTimeout(() => {
