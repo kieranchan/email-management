@@ -10,9 +10,10 @@ import MessageList from './components/MessageList';
 import ComposeModal, { type SaveStatus } from './components/ComposeModal';
 import SettingsModal from './components/SettingsModal';
 import EmailDetail from './components/EmailDetail';
+import DetailEmptyState from './components/DetailEmptyState';
 import MobileDrawer from './components/MobileDrawer';
 import BottomTab from './components/BottomTab';
-import { useIsMobile } from './hooks/useMediaQuery';
+import { useIsMobile, useIsDesktop } from './hooks/useMediaQuery';
 
 // 强调色定义
 const ACCENT_COLORS = [
@@ -101,9 +102,13 @@ export default function Dashboard() {
   const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(null);
   // M6: 同步错误状态
   const [syncError, setSyncError] = useState<string | null>(null);
+  // M7: 搜索状态
+  const [searchQuery, setSearchQuery] = useState('');
 
   // M3: Mobile drawer state
   const isMobile = useIsMobile();
+  // M7: Desktop three-column layout detection (>=1024px)
+  const isDesktop = useIsDesktop();
   const [drawerOpen, setDrawerOpen] = useState(false);
 
   // M4: Mobile view mode (list/detail/compose/settings)
@@ -121,6 +126,9 @@ export default function Dashboard() {
   // P7: 跟踪当前选中账号，用于 WebSocket 事件处理
   const selectedRef = useRef<string | null>(selected);
   useEffect(() => { selectedRef.current = selected; }, [selected]);
+
+  // Bug #33: 请求版本号，用于并发防护
+  const loadEmailsVersionRef = useRef(0);
 
   // Auto-save Debounce Effect
   useEffect(() => {
@@ -522,6 +530,9 @@ export default function Dashboard() {
 
   // Define functions BEFORE useEffect
   async function loadEmails() {
+    // Bug #33: 增加版本号，防止旧请求覆盖新结果
+    const currentVersion = ++loadEmailsVersionRef.current;
+
     setLoading(true);
     // 记录本次刷新时间，避免后续事件在短时间内重复刷新
     lastRefreshRef.current = Date.now();
@@ -547,7 +558,10 @@ export default function Dashboard() {
             accountLabel: d.account?.name,
             accountColorTag: d.account?.tag
           })) || [];
-          setEmails(enhanced);
+          // Bug #33: 版本校验，防止旧请求覆盖新结果
+          if (currentVersion === loadEmailsVersionRef.current) {
+            setEmails(enhanced);
+          }
         }
         return;
       }
@@ -558,6 +572,11 @@ export default function Dashboard() {
         url += `&scope=all`;
       } else {
         url += `&scope=account&accountId=${currentSelected}`;
+      }
+
+      // M7: 添加搜索参数
+      if (searchQuery.trim()) {
+        url += `&search=${encodeURIComponent(searchQuery.trim())}`;
       }
 
       const r = await fetch(url);
@@ -579,7 +598,10 @@ export default function Dashboard() {
           accountLabel: e.accountLabel,
           accountColorTag: e.accountColorTag
         }));
-        setEmails(enhanced);
+        // Bug #33: 版本校验，防止旧请求覆盖新结果
+        if (currentVersion === loadEmailsVersionRef.current) {
+          setEmails(enhanced);
+        }
       }
     } catch (e) {
       console.error('Failed to load emails:', e);
@@ -660,6 +682,8 @@ export default function Dashboard() {
 
   // 切换账号或文件夹时自动加载邮件 + 触发 Worker 同步
   useEffect(() => {
+    // Bug #32: 切换上下文时清空搜索词，避免旧的防抖定时器干扰
+    setSearchQuery('');
     loadEmails();
 
     // P7: 切换账号时触发 Worker 同步，确保获取最新邮件（仿照 Roundcube 的"主动请求"模式）
@@ -674,6 +698,15 @@ export default function Dashboard() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selected, activeFolder]);
+
+  // M7: 搜索防抖效果
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      loadEmails();
+    }, 500);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchQuery]);
 
 
   function toggleMode(targetMode: boolean) {
@@ -1029,7 +1062,7 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="app-shell">
+    <div className={`app-shell${isDesktop ? ' desktop-three-column' : ''}`}>
       {/* Desktop: Sidebar */}
       {!isMobile && (
         <div className="glass-lg sidebar">
@@ -1154,6 +1187,8 @@ export default function Dashboard() {
           markAsUnread={markAsUnread}
           archiveSingle={archiveSingle}
           deleteSingle={deleteSingle}
+          searchQuery={searchQuery}
+          onSearchChange={setSearchQuery}
         />
       </div>
 
@@ -1172,76 +1207,157 @@ export default function Dashboard() {
         />
       )}
 
-      {/* Email Detail Panel */}
-      <AnimatePresence>
-        {selectedEmail && (
-          <EmailDetail
-            email={selectedEmail}
-            getColor={getColor}
-            onClose={() => setSelectedEmail(null)}
-            onDelete={deleteEmail}
-            onArchive={archiveEmail}
-            isMobile={isMobile}
-            // Bug #28: 连接导航和操作 props
-            hasPrev={emails.findIndex(e => e.id === selectedEmail.id) > 0}
-            hasNext={emails.findIndex(e => e.id === selectedEmail.id) < emails.length - 1}
-            onPrev={() => {
-              const idx = emails.findIndex(e => e.id === selectedEmail.id);
-              if (idx > 0) selectEmail(emails[idx - 1]);
-            }}
-            onNext={() => {
-              const idx = emails.findIndex(e => e.id === selectedEmail.id);
-              if (idx < emails.length - 1) selectEmail(emails[idx + 1]);
-            }}
-            onMarkRead={async (id, markAsReadFlag) => {
-              // markAsReadFlag: true = 标记为已读, false = 标记为未读
-              if (markAsReadFlag) {
-                await markAsRead(id);
-                // 更新当前选中邮件状态
-                if (selectedEmail?.id === id) {
-                  setSelectedEmail(prev => prev ? { ...prev, unread: false } : null);
-                }
-              } else {
-                await markAsUnread(id);
-                // 更新当前选中邮件状态
-                if (selectedEmail?.id === id) {
-                  setSelectedEmail(prev => prev ? { ...prev, unread: true } : null);
-                }
-              }
-            }}
-            onStar={async (id, starred) => {
-              // 调用星标 API
-              try {
-                const res = await fetch(`/api/messages/${id}/star`, {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ starred }),
-                });
-                if (res.ok) {
-                  // 更新本地邮件列表
-                  setEmails(prev => prev.map(e => e.id === id ? { ...e, starred } : e));
-                  // 更新当前选中邮件
+      {/* M7: Desktop Three-Column - Detail Panel (常驻显示) */}
+      {isDesktop && (
+        <div className="detail-column">
+          {selectedEmail ? (
+            <EmailDetail
+              email={selectedEmail}
+              getColor={getColor}
+              onClose={() => setSelectedEmail(null)}
+              onDelete={deleteEmail}
+              onArchive={archiveEmail}
+              isMobile={false}
+              variant="panel"
+              hasPrev={emails.findIndex(e => e.id === selectedEmail.id) > 0}
+              hasNext={emails.findIndex(e => e.id === selectedEmail.id) < emails.length - 1}
+              onPrev={() => {
+                const idx = emails.findIndex(e => e.id === selectedEmail.id);
+                if (idx > 0) selectEmail(emails[idx - 1]);
+              }}
+              onNext={() => {
+                const idx = emails.findIndex(e => e.id === selectedEmail.id);
+                if (idx < emails.length - 1) selectEmail(emails[idx + 1]);
+              }}
+              onMarkRead={async (id, markAsReadFlag) => {
+                if (markAsReadFlag) {
+                  await markAsRead(id);
                   if (selectedEmail?.id === id) {
-                    setSelectedEmail(prev => prev ? { ...prev, starred } : null);
+                    setSelectedEmail(prev => prev ? { ...prev, unread: false } : null);
+                  }
+                } else {
+                  await markAsUnread(id);
+                  if (selectedEmail?.id === id) {
+                    setSelectedEmail(prev => prev ? { ...prev, unread: true } : null);
                   }
                 }
-              } catch (err) {
-                console.error('Star error:', err);
-              }
-            }}
-            onForward={(email) => {
-              // 打开写邮件弹窗，预填转发内容
-              setCompose(true);
-              setForm({
-                from: selected && selected !== 'all' ? selected : '',
-                to: '',
-                subject: `Fwd: ${email.subject}`,
-                content: `\n\n---------- Forwarded message ----------\nFrom: ${email.from}\nDate: ${email.date}\nSubject: ${email.subject}\n\n${email.content || email.snippet || ''}`
-              });
-            }}
-          />
-        )}
-      </AnimatePresence>
+              }}
+              onStar={async (id, starred) => {
+                try {
+                  const res = await fetch(`/api/messages/${id}/star/`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ starred }),
+                  });
+                  if (res.ok) {
+                    setEmails(prev => prev.map(e => e.id === id ? { ...e, starred } : e));
+                    if (selectedEmail?.id === id) {
+                      setSelectedEmail(prev => prev ? { ...prev, starred } : null);
+                    }
+                  }
+                } catch (err) {
+                  console.error('Star error:', err);
+                }
+              }}
+              onForward={(email) => {
+                setCompose(true);
+                setForm({
+                  from: selected && selected !== 'all' ? selected : '',
+                  to: '',
+                  subject: `Fwd: ${email.subject}`,
+                  content: `\n\n---------- Forwarded message ----------\nFrom: ${email.from}\nDate: ${email.date}\nSubject: ${email.subject}\n\n${email.content || email.snippet || ''}`
+                });
+              }}
+            />
+          ) : (
+            <DetailEmptyState
+              onComposeClick={() => {
+                setCompose(true);
+                setSendError(null);
+                if (selected && selected !== 'all') {
+                  setForm(prev => ({ ...prev, from: selected }));
+                }
+              }}
+              onRefreshClick={() => {
+                setSyncError(null);
+                loadEmails();
+                if (ws && ws.readyState === WebSocket.OPEN && selected && selected !== 'all') {
+                  setSyncing(true);
+                  ws.send(JSON.stringify({ type: 'sync', accountId: selected }));
+                }
+              }}
+              syncing={syncing}
+              lastSyncedAt={lastSyncedAt ? new Date(lastSyncedAt) : null}
+            />
+          )}
+        </div>
+      )}
+
+      {/* Mobile/Tablet: Email Detail Panel (弹窗模式) */}
+      {!isDesktop && (
+        <AnimatePresence>
+          {selectedEmail && (
+            <EmailDetail
+              email={selectedEmail}
+              getColor={getColor}
+              onClose={() => setSelectedEmail(null)}
+              onDelete={deleteEmail}
+              onArchive={archiveEmail}
+              isMobile={isMobile}
+              variant="modal"
+              hasPrev={emails.findIndex(e => e.id === selectedEmail.id) > 0}
+              hasNext={emails.findIndex(e => e.id === selectedEmail.id) < emails.length - 1}
+              onPrev={() => {
+                const idx = emails.findIndex(e => e.id === selectedEmail.id);
+                if (idx > 0) selectEmail(emails[idx - 1]);
+              }}
+              onNext={() => {
+                const idx = emails.findIndex(e => e.id === selectedEmail.id);
+                if (idx < emails.length - 1) selectEmail(emails[idx + 1]);
+              }}
+              onMarkRead={async (id, markAsReadFlag) => {
+                if (markAsReadFlag) {
+                  await markAsRead(id);
+                  if (selectedEmail?.id === id) {
+                    setSelectedEmail(prev => prev ? { ...prev, unread: false } : null);
+                  }
+                } else {
+                  await markAsUnread(id);
+                  if (selectedEmail?.id === id) {
+                    setSelectedEmail(prev => prev ? { ...prev, unread: true } : null);
+                  }
+                }
+              }}
+              onStar={async (id, starred) => {
+                try {
+                  const res = await fetch(`/api/messages/${id}/star/`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ starred }),
+                  });
+                  if (res.ok) {
+                    setEmails(prev => prev.map(e => e.id === id ? { ...e, starred } : e));
+                    if (selectedEmail?.id === id) {
+                      setSelectedEmail(prev => prev ? { ...prev, starred } : null);
+                    }
+                  }
+                } catch (err) {
+                  console.error('Star error:', err);
+                }
+              }}
+              onForward={(email) => {
+                setCompose(true);
+                setForm({
+                  from: selected && selected !== 'all' ? selected : '',
+                  to: '',
+                  subject: `Fwd: ${email.subject}`,
+                  content: `\n\n---------- Forwarded message ----------\nFrom: ${email.from}\nDate: ${email.date}\nSubject: ${email.subject}\n\n${email.content || email.snippet || ''}`
+                });
+              }}
+            />
+          )}
+        </AnimatePresence>
+      )}
 
       {/* Settings Modal */}
       <AnimatePresence>

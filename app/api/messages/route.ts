@@ -14,6 +14,7 @@ export const dynamic = 'force-dynamic';
  * - folderType: 'inbox' | 'sent' | 'archive' | 'drafts' (默认 inbox)
  * - page: 页码 (默认 1)
  * - limit: 每页数量 (默认 50, 最大 100)
+ * - search: 搜索关键词（在发件人、主题、内容中搜索）
  */
 export async function GET(request: Request) {
     try {
@@ -23,6 +24,7 @@ export async function GET(request: Request) {
         const folderType = searchParams.get('folderType') || 'inbox';
         const page = Math.max(1, parseInt(searchParams.get('page') || '1', 10));
         const limit = Math.min(100, Math.max(1, parseInt(searchParams.get('limit') || '50', 10)));
+        const search = searchParams.get('search')?.trim() || '';
 
         // 构建查询条件
         const where: Record<string, unknown> = {};
@@ -30,6 +32,15 @@ export async function GET(request: Request) {
         // 账号过滤
         if (scope === 'account' && accountId) {
             where.accountId = accountId;
+        }
+
+        // M7: 搜索条件
+        if (search) {
+            where.OR = [
+                { from: { contains: search, mode: 'insensitive' } },
+                { subject: { contains: search, mode: 'insensitive' } },
+                { content: { contains: search, mode: 'insensitive' } },
+            ];
         }
 
         // 文件夹类型过滤
@@ -84,6 +95,12 @@ export async function GET(request: Request) {
                 } catch { /* ignore */ }
             }
             const isUnread = !parsedFlags.some(f => f.toUpperCase() === '\\SEEN');
+            // Bug #29 fix: 从 flags 解析 starred 状态
+            const isStarred = parsedFlags.some(f => f.toUpperCase() === '\\FLAGGED');
+            // hasAttachment: 暂时从 content 判断（简单启发式）
+            const hasAttachment = email.content?.includes('attachment') ||
+                email.content?.includes('filename=') ||
+                email.content?.includes('Content-Disposition: attachment') || false;
 
             return {
                 id: email.id,
@@ -97,6 +114,8 @@ export async function GET(request: Request) {
                 subject: email.subject,
                 date: email.date?.toISOString(),
                 unread: isUnread,
+                starred: isStarred,           // Bug #29: 添加 starred 字段
+                hasAttachment: hasAttachment, // Bug #29: 添加 hasAttachment 字段
                 snippet: email.content?.replace(/<[^>]*>/g, '').slice(0, 100),
                 folder: email.folder,
                 archived: email.archived,

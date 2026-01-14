@@ -31,6 +31,8 @@ interface EmailDetailProps {
   hasPrev?: boolean;
   hasNext?: boolean;
   isMobile?: boolean;
+  /** M7: 桌面端三栏布局模式 - 'modal' 保持现有行为，'panel' 用于常驻右侧面板 */
+  variant?: 'modal' | 'panel';
 }
 
 const transitionBase = { duration: 0.15, ease: [0.2, 0.8, 0.2, 1] };
@@ -49,7 +51,11 @@ export default function EmailDetail({
   hasPrev = false,
   hasNext = false,
   isMobile = false,
+  variant = 'modal',
 }: EmailDetailProps) {
+  // M7: 是否为常驻面板模式
+  const isPanel = variant === 'panel';
+
   // M6: 键盘导航支持
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
     if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
@@ -68,38 +74,48 @@ export default function EmailDetail({
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, [handleKeyDown]);
 
+  // M7: Panel 模式使用普通 div，无动画；Modal 模式保持原有动画
+  const Container = isPanel ? 'div' : motion.div;
+  const containerProps = isPanel ? {} : {
+    initial: { opacity: 0, x: isMobile ? '100%' : 20, y: 0 },
+    animate: { opacity: 1, x: 0, y: 0 },
+    exit: { opacity: 0, x: isMobile ? '100%' : 20, y: 0 },
+    transition: transitionBase,
+  };
+
   return (
-    <motion.div
-      initial={{ opacity: 0, x: isMobile ? '100%' : 20, y: 0 }}
-      animate={{ opacity: 1, x: 0, y: 0 }}
-      exit={{ opacity: 0, x: isMobile ? '100%' : 20, y: 0 }}
-      transition={transitionBase}
-      className="glass-lg"
+    <Container
+      {...containerProps}
+      className={isPanel ? 'detail-panel' : 'glass-lg'}
       style={{
-        // Mobile: fixed full-screen, Desktop: sidebar panel
+        // Mobile: fixed full-screen, Desktop modal: sidebar panel, Desktop panel: fill grid area
         position: isMobile ? 'fixed' : 'relative',
         inset: isMobile ? 0 : undefined,
-        width: isMobile ? '100%' : 700,
-        height: isMobile ? '100%' : undefined,
+        width: isMobile ? '100%' : (isPanel ? '100%' : 700),
+        height: isMobile ? '100%' : (isPanel ? '100%' : undefined),
         flexShrink: 0,
         display: 'flex',
         flexDirection: 'column',
-        zIndex: isMobile ? 200 : 10, // Above BottomTab (z-index: 100)
+        zIndex: isMobile ? 200 : (isPanel ? 1 : 10),
         padding: 0,
-        borderLeft: isMobile ? 'none' : '1px solid var(--stroke-1)',
+        borderLeft: (isMobile || isPanel) ? 'none' : '1px solid var(--stroke-1)',
         borderRadius: isMobile ? 0 : undefined,
+        overflow: 'hidden',
       }}
     >
       {/* Detail Header */}
       <div style={{ height: 64, display: 'flex', alignItems: 'center', gap: 8, padding: '0 16px', borderBottom: '1px solid var(--stroke-1)' }}>
-        <button
-          onClick={onClose}
-          className="glass-button"
-          style={{ width: 36, height: 36, borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
-          title="返回列表"
-        >
-          <ArrowLeft size={18} />
-        </button>
+        {/* M7: Panel 模式隐藏返回按钮 */}
+        {!isPanel && (
+          <button
+            onClick={onClose}
+            className="glass-button"
+            style={{ width: 36, height: 36, borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
+            title="返回列表"
+          >
+            <ArrowLeft size={18} />
+          </button>
+        )}
 
         {/* M6: 上一封/下一封导航 */}
         <div className="email-nav-buttons" style={{ display: 'flex', gap: 4 }}>
@@ -337,6 +353,6 @@ export default function EmailDetail({
           回复
         </button>
       </div>
-    </motion.div>
+    </Container>
   );
 }

@@ -44,3 +44,11 @@ export function useIsMobile(): boolean {
 export function useIsTablet(): boolean {
     return useMediaQuery('(min-width: 768px) and (max-width: 1023px)');
 }
+
+/**
+ * M7: Convenience hook for desktop detection (three-column layout)
+ * @returns boolean - true if viewport width >= 1024px
+ */
+export function useIsDesktop(): boolean {
+    return useMediaQuery('(min-width: 1024px)');
+}
