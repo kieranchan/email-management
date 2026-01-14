@@ -1,0 +1,22 @@
+# Docker Compose for production deployment
+# Uses pre-built image from Docker Hub
+
+services:
+  admin-dashboard:
+    image: stefanchena/nexus-mail:latest
+    container_name: nexus-mail
+    restart: always
+    environment:
+      - DATABASE_URL=file:/app/dev.db
+      - NODE_ENV=production
+    volumes:
+      # Persist the SQLite database
+      - ./data/dev.db:/app/dev.db
+    ports:
+      - "3000:3000"
+    networks:
+      - default
+
+networks:
+  default:
+    driver: bridge
