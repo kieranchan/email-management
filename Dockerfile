@@ -54,9 +54,8 @@ COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 COPY --from=builder --chown=nextjs:nodejs /app/prisma ./prisma
 
-# Copy entrypoint script and default config
+# Copy entrypoint script
 COPY --chown=nextjs:nodejs docker-entrypoint.sh /app/
-COPY --chown=nextjs:nodejs data/tags.json /app/data/tags.json
 RUN chmod +x /app/docker-entrypoint.sh
 
 USER nextjs
