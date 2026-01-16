@@ -16,17 +16,11 @@ interface Email {
     snippet?: string;
     content?: string;
     accountLabel?: string;
-    accountColorTag?: string;
 }
 
 interface BatchProgress {
     current: number;
     total: number;
-}
-
-interface TagBadge {
-    label: string;
-    color: string;
 }
 
 type FilterType = 'all' | 'unread' | 'starred' | 'attachment';
@@ -41,7 +35,6 @@ interface MessageListProps {
     batchProgress: BatchProgress | null;
     selected: string | null;
     getColor: (name: string) => string;
-    getTagBadge: (tag: string) => TagBadge;
     getPreview: (email: Email) => string;
     selectEmail: (email: Email) => void;
     toggleSelect: (id: string, checked: boolean) => void;
@@ -79,7 +72,6 @@ export default function MessageList({
     batchProgress,
     selected,
     getColor,
-    getTagBadge,
     getPreview,
     selectEmail,
     toggleSelect,
@@ -460,14 +452,9 @@ export default function MessageList({
                                         {e.hasAttachment && <Paperclip size={12} className="email-attachment-icon" />}
                                     </div>
                                     {(selected === 'all' || !selected) && e.accountLabel && (
-                                        (() => {
-                                            const badge = getTagBadge(e.accountColorTag || '');
-                                            return (
-                                                <span className="email-account-tag" style={{ fontSize: 10, padding: '2px 6px', borderRadius: 4, background: badge.color, color: '#000', fontWeight: 700, opacity: 0.9, flexShrink: 0, whiteSpace: 'nowrap' }}>
-                                                    {e.accountLabel}
-                                                </span>
-                                            );
-                                        })()
+                                        <span className="email-account-tag" style={{ fontSize: 10, padding: '2px 6px', borderRadius: 4, background: 'var(--surface-2)', color: 'var(--text-2)', fontWeight: 500, flexShrink: 0, whiteSpace: 'nowrap' }}>
+                                            {e.accountLabel}
+                                        </span>
                                     )}
                                 </div>
                                 <div style={{ fontSize: 12, color: 'var(--text-3)', fontFamily: 'var(--font-ui)', flexShrink: 0, marginLeft: 8 }}>

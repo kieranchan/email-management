@@ -16,7 +16,6 @@ model Account {
   email     String   @unique
   password  String   // Stored as plain/encrypted for IMAP access
   name      String?
-  tag       String?
   host      String   @default("mail.oragenode.online")
   port      Int      @default(993)
   smtpPort  Int      @default(587)

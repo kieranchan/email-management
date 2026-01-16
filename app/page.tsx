@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Mail, Settings, Check } from 'lucide-react';
 import SidebarFolders, { FolderType } from './components/SidebarFolders';
@@ -25,7 +25,7 @@ const ACCENT_COLORS = [
   { id: 'red', name: '红色', color: '#ef4444' },
 ];
 
-interface Account { id: string; email: string; name: string; tag: string; }
+interface Account { id: string; email: string; name: string; }
 interface Email {
   id: string;
   from: string;
@@ -38,37 +38,12 @@ interface Email {
   archived?: boolean;
   isDraft?: boolean;
   accountLabel?: string;
-  accountColorTag?: string;
   uid?: number;          // IMAP UID，用于同步
   accountId?: string;    // 账号 ID，用于同步
 }
-interface Tag { id: string; label: string; color: string; }
-
-// Fallback tags if API fails
-const FALLBACK_TAGS: Tag[] = [
-  { id: 'vip', label: 'VIP', color: '#fbbf24' },
-  { id: 'important', label: '重要', color: '#a78bfa' },
-  { id: 'normal', label: '普通', color: '#60a5fa' },
-  { id: 'low', label: '低优先', color: '#34d399' },
-  { id: 'admin', label: '管理', color: '#ef4444' }
-];
 
 const avatarColors = ['#ff6b6b', '#4ecdc4', '#45b7d1', '#96ceb4', '#ffd93d', '#a29bfe', '#fd79a8', '#00b894'];
 const getColor = (s: string) => avatarColors[(s?.charCodeAt(0) || 0) % avatarColors.length];
-
-// Dynamic tag badge lookup
-function makeTagBadge(tags: Tag[]) {
-  return (tag: string) => {
-    const t = tag?.toLowerCase() || '';
-    const found = tags.find(tr => t.includes(tr.label.toLowerCase()));
-    if (found) {
-      // Use first character as short label
-      const short = found.label[0];
-      return { color: found.color, label: short };
-    }
-    return { color: '#9ca3af', label: '?' };
-  };
-}
 
 export default function Dashboard() {
   const [isDark, setIsDark] = useState(true);
@@ -413,48 +388,7 @@ export default function Dashboard() {
     archive: { title: '归档为空', hint: '归档功能用于清理收件箱' }
   };
 
-  // Dynamic Tags
-  const [tags, setTags] = useState<Tag[]>(FALLBACK_TAGS);
-  const getTagBadge = useMemo(() => makeTagBadge(tags), [tags]);
 
-  // Tag Editing
-  const [editingTagId, setEditingTagId] = useState<string | null>(null);
-
-  // Tag Management (Settings Panel)
-  const [newTagLabel, setNewTagLabel] = useState('');
-  const [newTagColor, setNewTagColor] = useState('#9ca3af');
-  const [tagError, setTagError] = useState<string | null>(null);
-  const [tagLoading, setTagLoading] = useState(false);
-
-  async function updateTag(accountId: string, newTag: string) {
-    const res = await fetch(`/api/accounts/?id=${accountId}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ tag: newTag })
-    });
-    if (res.ok) {
-      // Update local state
-      setAccounts(prev => prev.map(a => a.id === accountId ? { ...a, tag: newTag } : a));
-    }
-    setEditingTagId(null);
-  }
-
-
-
-  // Load dynamic tags from API
-  async function loadTags() {
-    try {
-      const r = await fetch('/api/settings/tags/');
-      if (r.ok) {
-        const data = await r.json();
-        if (Array.isArray(data) && data.length > 0) {
-          setTags(data);
-        }
-      }
-    } catch {
-      // Keep fallback tags on error
-    }
-  }
 
   // Load email details
   async function selectEmail(email: Email) {
@@ -546,7 +480,7 @@ export default function Dashboard() {
         const r = await fetch(currentSelected && currentSelected !== 'all' ? `/api/drafts/?scope=account&accountId=${currentSelected}` : '/api/drafts/?scope=all');
         if (r.ok) {
           const data = await r.json();
-          const enhanced = data.items?.map((d: { id: string; to?: string; subject?: string; updatedAt?: string; preview?: string; account?: { name?: string; tag?: string } }) => ({
+          const enhanced = data.items?.map((d: { id: string; to?: string; subject?: string; updatedAt?: string; preview?: string; account?: { name?: string } }) => ({
             id: d.id,
             from: d.to || '(无收件人)',
             subject: d.subject || '(无主题)',
@@ -555,8 +489,7 @@ export default function Dashboard() {
             snippet: d.preview || '(草稿)',
             content: '',
             isDraft: true,
-            accountLabel: d.account?.name,
-            accountColorTag: d.account?.tag
+            accountLabel: d.account?.name
           })) || [];
           // Bug #33: 版本校验，防止旧请求覆盖新结果
           if (currentVersion === loadEmailsVersionRef.current) {
@@ -583,7 +516,7 @@ export default function Dashboard() {
       if (r.ok) {
         const data = await r.json();
         // Map API response to UI model
-        const enhanced = (data.items || []).map((e: { id: string; from?: string; to?: string; subject?: string; date?: string; unread?: boolean; starred?: boolean; hasAttachment?: boolean; snippet?: string; archived?: boolean; accountLabel?: string; accountColorTag?: string; uid?: number; accountId?: string }) => ({
+        const enhanced = (data.items || []).map((e: { id: string; from?: string; to?: string; subject?: string; date?: string; unread?: boolean; starred?: boolean; hasAttachment?: boolean; snippet?: string; archived?: boolean; accountLabel?: string; uid?: number; accountId?: string }) => ({
           id: e.id,
           from: e.from,
           to: e.to,
@@ -595,8 +528,7 @@ export default function Dashboard() {
           snippet: e.snippet,
           content: '', // Detail loaded on demand
           archived: e.archived,
-          accountLabel: e.accountLabel,
-          accountColorTag: e.accountColorTag
+          accountLabel: e.accountLabel
         }));
         // Bug #33: 版本校验，防止旧请求覆盖新结果
         if (currentVersion === loadEmailsVersionRef.current) {
@@ -610,54 +542,7 @@ export default function Dashboard() {
     }
   }
 
-  // Add new tag
-  async function addTag() {
-    if (!newTagLabel.trim()) {
-      setTagError('标签名称不能为空');
-      return;
-    }
-    setTagLoading(true);
-    setTagError(null);
-    try {
-      const r = await fetch('/api/settings/tags/', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ label: newTagLabel.trim(), color: newTagColor })
-      });
-      if (r.ok) {
-        setNewTagLabel('');
-        setNewTagColor('#9ca3af');
-        await loadTags();
-      } else {
-        const data = await r.json();
-        setTagError(data.error || '添加失败');
-      }
-    } catch {
-      setTagError('网络错误');
-    }
-    setTagLoading(false);
-  }
-
-  // Delete tag
-  async function deleteTag(tagId: string) {
-    setTagLoading(true);
-    setTagError(null);
-    try {
-      const r = await fetch(`/api/settings/tags/?id=${tagId}`, { method: 'DELETE' });
-      if (r.ok) {
-        await loadTags();
-      } else {
-        const data = await r.json();
-        setTagError(data.error || '删除失败');
-      }
-    } catch {
-      setTagError('网络错误');
-    }
-    setTagLoading(false);
-  }
-
   async function load() {
-    await loadTags();
     const r = await fetch('/api/accounts/');
     if (r.ok) setAccounts(await r.json());
     // Auto select 'all' if no selection
@@ -1084,12 +969,7 @@ export default function Dashboard() {
             accounts={accounts}
             selected={selected}
             setSelected={setSelected}
-            tags={tags}
-            editingTagId={editingTagId}
-            setEditingTagId={setEditingTagId}
-            getTagBadge={getTagBadge}
             getColor={getColor}
-            updateTag={updateTag}
           />
 
           {/* Navigation */}
@@ -1108,12 +988,7 @@ export default function Dashboard() {
               setSelected(id);
               setDrawerOpen(false); // Close drawer on selection
             }}
-            tags={tags}
-            editingTagId={editingTagId}
-            setEditingTagId={setEditingTagId}
-            getTagBadge={getTagBadge}
             getColor={getColor}
-            updateTag={updateTag}
           />
 
           {/* Settings button in drawer */}
@@ -1150,10 +1025,18 @@ export default function Dashboard() {
             // M6: 手动同步/刷新
             setSyncError(null);
             loadEmails();
-            // 如果有 WebSocket 连接且选中了账号，触发 IMAP 同步
-            if (ws && ws.readyState === WebSocket.OPEN && selected && selected !== 'all') {
+            // 触发 IMAP 同步
+            if (ws && ws.readyState === WebSocket.OPEN) {
               setSyncing(true);
-              ws.send(JSON.stringify({ type: 'sync', accountId: selected }));
+              if (selected === 'all' || !selected) {
+                // 全量同步：遍历所有账号
+                accounts.forEach(acc => {
+                  ws.send(JSON.stringify({ type: 'sync', accountId: acc.id }));
+                });
+              } else {
+                // 单账号同步
+                ws.send(JSON.stringify({ type: 'sync', accountId: selected }));
+              }
             }
           }}
           onComposeClick={() => {
@@ -1175,7 +1058,6 @@ export default function Dashboard() {
           batchProgress={batchProgress}
           selected={selected}
           getColor={getColor}
-          getTagBadge={getTagBadge}
           getPreview={getPreview}
           selectEmail={selectEmail}
           toggleSelect={toggleSelect}
@@ -1281,9 +1163,15 @@ export default function Dashboard() {
               onRefreshClick={() => {
                 setSyncError(null);
                 loadEmails();
-                if (ws && ws.readyState === WebSocket.OPEN && selected && selected !== 'all') {
+                if (ws && ws.readyState === WebSocket.OPEN) {
                   setSyncing(true);
-                  ws.send(JSON.stringify({ type: 'sync', accountId: selected }));
+                  if (selected === 'all' || !selected) {
+                    accounts.forEach(acc => {
+                      ws.send(JSON.stringify({ type: 'sync', accountId: acc.id }));
+                    });
+                  } else {
+                    ws.send(JSON.stringify({ type: 'sync', accountId: selected }));
+                  }
                 }
               }}
               syncing={syncing}
@@ -1366,22 +1254,12 @@ export default function Dashboard() {
             isDark={isDark}
             accent={accent}
             accentColors={ACCENT_COLORS}
-            tags={tags}
-            tagError={tagError}
-            tagLoading={tagLoading}
-            newTagLabel={newTagLabel}
-            newTagColor={newTagColor}
             onClose={() => setShowSettings(false)}
             toggleMode={toggleMode}
             changeAccent={changeAccent}
             previewAccent={previewAccent}
             resetAccent={resetAccent}
             defaultAccent={defaultAccent}
-            setNewTagLabel={setNewTagLabel}
-            setNewTagColor={setNewTagColor}
-            setTagError={setTagError}
-            addTag={addTag}
-            deleteTag={deleteTag}
             isMobile={isMobile}
           />
         )}

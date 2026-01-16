@@ -36,7 +36,7 @@ export async function GET(request: Request) {
         const emails = await prisma.email.findMany({
             where,
             orderBy: { date: 'desc' },
-            include: { account: { select: { id: true, email: true, name: true, tag: true } } },
+            include: { account: { select: { id: true, email: true, name: true } } },
             take: 100,
         });
 
@@ -57,7 +57,6 @@ export async function GET(request: Request) {
                 id: email.id,
                 accountId: email.accountId,
                 accountLabel: email.account.name || email.account.email.split('@')[0],
-                accountColorTag: email.account.tag,
                 uid: email.uid,
                 from: email.from,
                 to: email.to,

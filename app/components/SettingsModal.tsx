@@ -10,32 +10,16 @@ interface AccentColor {
     color: string;
 }
 
-interface Tag {
-    id: string;
-    label: string;
-    color: string;
-}
-
 interface SettingsModalProps {
     isDark: boolean;
     accent: string;
     accentColors: AccentColor[];
-    tags: Tag[];
-    tagError: string | null;
-    tagLoading: boolean;
-    newTagLabel: string;
-    newTagColor: string;
     onClose: () => void;
     toggleMode: (dark: boolean) => void;
     changeAccent: (color: string) => void;
-    previewAccent?: (color: string | null) => void;  // M6 P2: hover 预览
-    resetAccent?: () => void;                         // M6 P2: 重置默认
-    defaultAccent?: string;                           // M6 P2: 默认强调色
-    setNewTagLabel: (label: string) => void;
-    setNewTagColor: (color: string) => void;
-    setTagError: (error: string | null) => void;
-    addTag: () => void;
-    deleteTag: (id: string) => void;
+    previewAccent?: (color: string | null) => void;
+    resetAccent?: () => void;
+    defaultAccent?: string;
     isMobile?: boolean;
 }
 
@@ -46,22 +30,12 @@ export default function SettingsModal({
     isDark,
     accent,
     accentColors,
-    tags,
-    tagError,
-    tagLoading,
-    newTagLabel,
-    newTagColor,
     onClose,
     toggleMode,
     changeAccent,
     previewAccent,
     resetAccent,
     defaultAccent = '#8b5cf6',
-    setNewTagLabel,
-    setNewTagColor,
-    setTagError,
-    addTag,
-    deleteTag,
     isMobile = false,
 }: SettingsModalProps) {
     // M5.1: Keyboard detection for mobile
@@ -149,62 +123,6 @@ export default function SettingsModal({
                             ))}
                         </div>
                     </div>
-
-                    {/* Tag Management */}
-                    <div style={{ marginTop: 24, borderTop: '1px solid var(--stroke-1)', paddingTop: 24 }}>
-                        <div style={{ fontSize: 12, color: 'var(--text-2)', marginBottom: 12, fontWeight: 500 }}>标签管理</div>
-
-                        {/* Error Message */}
-                        {tagError && (
-                            <div style={{ padding: '8px 12px', background: 'rgba(239, 68, 68, 0.15)', border: '1px solid rgba(239, 68, 68, 0.3)', borderRadius: 8, marginBottom: 12, fontSize: 12, color: '#ef4444' }}>
-                                {tagError}
-                            </div>
-                        )}
-
-                        {/* Tag List */}
-                        <div style={{ marginBottom: 16 }}>
-                            {tags.map((tag) => (
-                                <div key={tag.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', background: 'var(--surface-1)', borderRadius: 8, marginBottom: 6 }}>
-                                    <div style={{ width: 16, height: 16, borderRadius: 4, background: tag.color, flexShrink: 0 }} />
-                                    <span style={{ flex: 1, fontSize: 13, color: 'var(--text-1)' }}>{tag.label}</span>
-                                    <button
-                                        onClick={() => deleteTag(tag.id)}
-                                        disabled={tagLoading}
-                                        style={{ background: 'none', border: 'none', color: 'var(--text-3)', cursor: tagLoading ? 'not-allowed' : 'pointer', padding: 4, opacity: tagLoading ? 0.5 : 1 }}
-                                        title="删除标签"
-                                    >
-                                        <X size={14} />
-                                    </button>
-                                </div>
-                            ))}
-                        </div>
-
-                        {/* Add New Tag */}
-                        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                            <input
-                                type="color"
-                                value={newTagColor}
-                                onChange={(e) => setNewTagColor(e.target.value)}
-                                style={{ width: 32, height: 32, border: 'none', borderRadius: 6, cursor: 'pointer', padding: 0 }}
-                                title="选择颜色"
-                            />
-                            <input
-                                type="text"
-                                value={newTagLabel}
-                                onChange={(e) => { setNewTagLabel(e.target.value); setTagError(null); }}
-                                placeholder="新标签名称 (如: VIP)"
-                                style={{ flex: 1, padding: '8px 12px', background: 'var(--surface-1)', border: '1px solid var(--stroke-1)', borderRadius: 8, color: 'var(--text-1)', fontSize: 13, outline: 'none' }}
-                                onKeyDown={(e) => e.key === 'Enter' && addTag()}
-                            />
-                            <button
-                                onClick={addTag}
-                                disabled={tagLoading || !newTagLabel.trim()}
-                                style={{ padding: '8px 16px', background: 'var(--accent)', border: 'none', borderRadius: 8, color: '#fff', fontSize: 12, fontWeight: 600, cursor: tagLoading || !newTagLabel.trim() ? 'not-allowed' : 'pointer', opacity: tagLoading || !newTagLabel.trim() ? 0.5 : 1 }}
-                            >
-                                添加
-                            </button>
-                        </div>
-                    </div>
                 </div>
             </motion.div>
         );
@@ -286,62 +204,6 @@ export default function SettingsModal({
                                     <span style={{ fontSize: 12, color: 'var(--text-2)' }}>{c.name}</span>
                                 </button>
                             ))}
-                        </div>
-                    </div>
-
-                    {/* Tag Management */}
-                    <div style={{ marginTop: 24, borderTop: '1px solid var(--stroke-1)', paddingTop: 24 }}>
-                        <div style={{ fontSize: 12, color: 'var(--text-2)', marginBottom: 12, fontWeight: 500 }}>标签管理</div>
-
-                        {/* Error Message */}
-                        {tagError && (
-                            <div style={{ padding: '8px 12px', background: 'rgba(239, 68, 68, 0.15)', border: '1px solid rgba(239, 68, 68, 0.3)', borderRadius: 8, marginBottom: 12, fontSize: 12, color: '#ef4444' }}>
-                                {tagError}
-                            </div>
-                        )}
-
-                        {/* Tag List */}
-                        <div style={{ marginBottom: 16 }}>
-                            {tags.map((tag) => (
-                                <div key={tag.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', background: 'var(--surface-1)', borderRadius: 8, marginBottom: 6 }}>
-                                    <div style={{ width: 16, height: 16, borderRadius: 4, background: tag.color, flexShrink: 0 }} />
-                                    <span style={{ flex: 1, fontSize: 13, color: 'var(--text-1)' }}>{tag.label}</span>
-                                    <button
-                                        onClick={() => deleteTag(tag.id)}
-                                        disabled={tagLoading}
-                                        style={{ background: 'none', border: 'none', color: 'var(--text-3)', cursor: tagLoading ? 'not-allowed' : 'pointer', padding: 4, opacity: tagLoading ? 0.5 : 1 }}
-                                        title="删除标签"
-                                    >
-                                        <X size={14} />
-                                    </button>
-                                </div>
-                            ))}
-                        </div>
-
-                        {/* Add New Tag */}
-                        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                            <input
-                                type="color"
-                                value={newTagColor}
-                                onChange={(e) => setNewTagColor(e.target.value)}
-                                style={{ width: 32, height: 32, border: 'none', borderRadius: 6, cursor: 'pointer', padding: 0 }}
-                                title="选择颜色"
-                            />
-                            <input
-                                type="text"
-                                value={newTagLabel}
-                                onChange={(e) => { setNewTagLabel(e.target.value); setTagError(null); }}
-                                placeholder="新标签名称 (如: VIP)"
-                                style={{ flex: 1, padding: '8px 12px', background: 'var(--surface-1)', border: '1px solid var(--stroke-1)', borderRadius: 8, color: 'var(--text-1)', fontSize: 13, outline: 'none' }}
-                                onKeyDown={(e) => e.key === 'Enter' && addTag()}
-                            />
-                            <button
-                                onClick={addTag}
-                                disabled={tagLoading || !newTagLabel.trim()}
-                                style={{ padding: '8px 16px', background: 'var(--accent)', border: 'none', borderRadius: 8, color: '#fff', fontSize: 12, fontWeight: 600, cursor: tagLoading || !newTagLabel.trim() ? 'not-allowed' : 'pointer', opacity: tagLoading || !newTagLabel.trim() ? 0.5 : 1 }}
-                            >
-                                添加
-                            </button>
                         </div>
                     </div>
                 </div>

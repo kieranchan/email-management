@@ -10,7 +10,6 @@ export async function GET() {
     return NextResponse.json({
         email: acc?.email,
         password: acc?.password, // returning password for debug only
-        tag: acc?.tag,
         host: acc?.host,
         port: acc?.port
     });

@@ -90,7 +90,7 @@ export async function GET(
             where: { id },
             include: {
                 account: {
-                    select: { id: true, email: true, name: true, tag: true }
+                    select: { id: true, email: true, name: true }
                 }
             },
         });
@@ -127,7 +127,6 @@ export async function GET(
             providerKey: email.providerKey,
             accountId: email.accountId,
             accountLabel: email.account.name || email.account.email.split('@')[0],
-            accountColorTag: email.account.tag,
             uid: email.uid,
             from: email.from,
             to: email.to,

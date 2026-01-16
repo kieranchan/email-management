@@ -74,7 +74,7 @@ export async function GET(request: Request) {
                 orderBy: { date: 'desc' },
                 include: {
                     account: {
-                        select: { id: true, email: true, name: true, tag: true }
+                        select: { id: true, email: true, name: true }
                     }
                 },
                 skip: (page - 1) * limit,
@@ -107,7 +107,6 @@ export async function GET(request: Request) {
                 providerKey: email.providerKey,
                 accountId: email.accountId,
                 accountLabel: email.account.name || email.account.email.split('@')[0],
-                accountColorTag: email.account.tag,
                 uid: email.uid,
                 from: email.from,
                 to: email.to,

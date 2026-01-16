@@ -18,7 +18,6 @@ export async function GET() {
                 id: true,
                 email: true,
                 name: true,
-                tag: true,
                 host: true,
                 port: true,
                 smtpPort: true,

@@ -25,19 +25,18 @@ export async function POST(request: Request) {
         const results = [];
 
         for (const item of data) {
-            const { email, password, name, tag } = item;
+            const { email, password, name } = item;
 
             if (!email || !password) continue;
 
             // Upsert to update password if exists
             const account = await prisma.account.upsert({
                 where: { email },
-                update: { password, name, tag },
+                update: { password, name },
                 create: {
                     email,
                     password,
                     name,
-                    tag,
                     host: 'mail.oragenode.online', // Default
                     port: 993,
                     smtpPort: 587
@@ -72,7 +71,7 @@ export async function DELETE(request: Request) {
     }
 }
 
-// Update account (tag, name, etc.)
+// Update account (name, etc.)
 export async function PATCH(request: Request) {
     try {
         const { searchParams } = new URL(request.url);
@@ -83,12 +82,11 @@ export async function PATCH(request: Request) {
         }
 
         const body = await request.json();
-        const { tag, name } = body;
+        const { name } = body;
 
         const account = await prisma.account.update({
             where: { id },
             data: {
-                ...(tag && { tag }),
                 ...(name && { name }),
             },
         });

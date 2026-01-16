@@ -22,7 +22,6 @@ export async function GET(request: Request) {
                         id: true,
                         name: true,
                         email: true,
-                        tag: true,
                     }
                 }
             },
@@ -34,7 +33,6 @@ export async function GET(request: Request) {
             id: draft.id,
             accountId: draft.accountId,
             accountLabel: draft.account.name || draft.account.email.split('@')[0],
-            accountColorTag: draft.account.tag,
             to: draft.to,
             subject: draft.subject,
             preview: draft.textBody?.slice(0, 100),
