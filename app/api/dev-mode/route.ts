@@ -3,6 +3,11 @@ import prisma from '@/app/lib/prisma';
 
 // Switch between development (localhost) and production (mail.oragenode.online)
 export async function POST(request: Request) {
+    // 仅允许开发环境访问，防止生产环境配置被意外修改
+    if (process.env.NODE_ENV === 'production') {
+        return NextResponse.json({ error: 'This endpoint is only available in development' }, { status: 403 });
+    }
+
     try {
         const { mode } = await request.json();
 

@@ -727,25 +727,33 @@ export default function Dashboard() {
     const r = await fetch(`/api/messages/${emailId}/`, {
       method: 'DELETE'
     });
+
     if (r.ok) {
       const result = await r.json();
 
-      // 通过 WebSocket 同步到 IMAP
+      // Sync to IMAP via WebSocket with folder parameter
       if (ws && ws.readyState === WebSocket.OPEN && result.uid && result.accountId) {
         ws.send(JSON.stringify({
           type: 'delete',
           accountId: result.accountId,
-          uid: result.uid
+          uid: result.uid,
+          folder: result.folder || 'INBOX'
         }));
-        console.log('[WS] Sent delete:', result.uid);
+        console.log('[WS] Sent delete:', result.uid, 'folder:', result.folder);
       }
 
       // Close detail panel and refresh list
       setSelectedEmail(null);
       await loadEmails();
 
-      // 显示成功 Toast
+      // Show success toast
       setToastMessage('🗑️ 邮件已删除');
+      setShowToast(true);
+      setTimeout(() => setShowToast(false), 3000);
+    } else {
+      // Handle API error
+      const errorData = await r.json().catch(() => ({ error: '未知错误' }));
+      setToastMessage(`❌ 删除失败: ${errorData.error}`);
       setShowToast(true);
       setTimeout(() => setShowToast(false), 3000);
     }
@@ -864,7 +872,12 @@ export default function Dashboard() {
           successCount++;
           // 同步到 IMAP
           if (ws && ws.readyState === WebSocket.OPEN && result.uid && result.accountId) {
-            ws.send(JSON.stringify({ type: 'delete', accountId: result.accountId, uid: result.uid }));
+            ws.send(JSON.stringify({ 
+              type: 'delete', 
+              accountId: result.accountId, 
+              uid: result.uid,
+              folder: result.folder || 'INBOX'
+            }));
           }
         }
         setBatchProgress({ current: i + 1, total });

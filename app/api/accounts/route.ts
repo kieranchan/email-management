@@ -5,9 +5,18 @@ export async function GET() {
     try {
         const accounts = await prisma.account.findMany({
             orderBy: { createdAt: 'asc' },
+            select: {
+                id: true,
+                email: true,
+                name: true,
+                host: true,
+                port: true,
+                smtpPort: true,
+                createdAt: true,
+                updatedAt: true,
+                // 不返回password字段，提升安全性
+            }
         });
-        // Don't return passwords in list ideally, but for this admin tool it's fine/needed sometimes. 
-        // We'll return full object for now as it makes "Edit" easier.
         return NextResponse.json(accounts);
     } catch (error) {
         console.error('GET Accounts Error:', error);

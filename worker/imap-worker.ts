@@ -35,8 +35,8 @@ wss.on('connection', (ws) => {
                 const result = await worker.archiveEmail(msg.accountId, msg.uid, msg.archive !== false);
                 ws.send(JSON.stringify({ type: 'archive_result', ...result }));
             } else if (msg.type === 'delete' && msg.accountId && msg.uid !== undefined) {
-                console.log(`[WS] Delete request: account=${msg.accountId}, uid=${msg.uid}`);
-                const result = await worker.deleteEmail(msg.accountId, msg.uid);
+                console.log(`[WS] Delete request: account=${msg.accountId}, uid=${msg.uid}, folder=${msg.folder || 'INBOX'}`);
+                const result = await worker.deleteEmail(msg.accountId, msg.uid, msg.folder || 'INBOX');
                 ws.send(JSON.stringify({ type: 'delete_result', ...result }));
             }
         } catch (e) {
@@ -160,8 +160,11 @@ class AccountWatcher {
 
         console.log(`[IMAP] Connecting to ${this.account.email}...`);
 
+        // 使用环境变量覆盖 host (支持跨VPS部署：Dashboard在一个VPS，邮箱服务器在另一个VPS)
+        const imapHost = process.env.IMAP_HOST || this.account.host;
+
         this.client = new ImapFlow({
-            host: this.account.host,
+            host: imapHost,
             port: this.account.port,
             secure: this.account.port === 465 || this.account.port === 993,
             auth: {
@@ -344,11 +347,11 @@ class AccountWatcher {
             });
             const lastUid = lastEmail?.uid || 0;
 
-                // IMAP UID SEARCH
-                const lock = await this.client.getMailboxLock('INBOX');
-                let synced = 0;
+            // IMAP UID SEARCH
+            const lock = await this.client.getMailboxLock('INBOX');
+            let synced = 0;
 
-                try {
+            try {
                 const messages = this.client.fetch(`${lastUid + 1}:*`, {
                     envelope: true,
                     internalDate: true,
@@ -508,27 +511,27 @@ class AccountWatcher {
         }
     }
 
-    // 删除邮件：标记为删除并执行 expunge
-    async deleteEmail(uid: number): Promise<{ success: boolean; error?: string }> {
+    // Delete email: mark as deleted and execute expunge
+    async deleteEmail(uid: number, folder: string = 'INBOX'): Promise<{ success: boolean; error?: string }> {
         if (!this.client) {
             return { success: false, error: 'Not connected' };
         }
 
         try {
-            const lock = await this.client.getMailboxLock('INBOX');
+            const lock = await this.client.getMailboxLock(folder);
             try {
-                // 标记为删除
+                // Mark as deleted
                 await this.client.messageFlagsAdd({ uid: true }, String(uid), ['\\Deleted']);
-                // 执行 expunge 永久删除
+                // Execute expunge to permanently delete
                 await this.client.messageDelete({ uid: true }, String(uid));
-                console.log(`[IMAP] Deleted UID ${uid} for ${this.account.email}`);
+                console.log(`[IMAP] Deleted UID ${uid} from ${folder} for ${this.account.email}`);
                 return { success: true };
             } finally {
                 lock.release();
             }
         } catch (err: unknown) {
             const message = err instanceof Error ? err.message : String(err);
-            console.error(`[IMAP] Failed to delete for ${this.account.email}:`, message);
+            console.error(`[IMAP] Failed to delete from ${folder} for ${this.account.email}:`, message);
             return { success: false, error: message };
         }
     }
@@ -646,14 +649,14 @@ class ImapWorker {
         return { ...result, accountId, uid, archive };
     }
 
-    // 删除邮件（通过 WebSocket 调用）
-    async deleteEmail(accountId: string, uid: number): Promise<{ success: boolean; accountId: string; uid: number; error?: string }> {
+    // Delete email (called via WebSocket)
+    async deleteEmail(accountId: string, uid: number, folder: string = 'INBOX'): Promise<{ success: boolean; accountId: string; uid: number; folder: string; error?: string }> {
         const watcher = this.watchers.get(accountId);
         if (!watcher) {
-            return { success: false, accountId, uid, error: 'Account not found or not connected' };
+            return { success: false, accountId, uid, folder, error: 'Account not found or not connected' };
         }
-        const result = await watcher.deleteEmail(uid);
-        return { ...result, accountId, uid };
+        const result = await watcher.deleteEmail(uid, folder);
+        return { ...result, accountId, uid, folder };
     }
 }
 

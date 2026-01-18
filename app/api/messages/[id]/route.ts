@@ -157,29 +157,30 @@ export async function DELETE(
     try {
         const { id } = await params;
 
-        // 查找邮件获取 uid 和 accountId
+        // Query email to get uid, accountId, and folder
         const email = await prisma.email.findUnique({
             where: { id },
-            select: { id: true, uid: true, accountId: true }
+            select: { id: true, uid: true, accountId: true, folder: true }
         });
 
         if (!email) {
             return NextResponse.json({ error: 'Message not found' }, { status: 404 });
         }
 
-        // 删除本地数据库记录
+        // Delete local database record
         await prisma.email.delete({
             where: { id }
         });
 
-        console.log(`[Messages/${id}] Deleted email, uid=${email.uid}, accountId=${email.accountId}`);
+        console.log(`[Messages/${id}] Deleted email, uid=${email.uid}, accountId=${email.accountId}, folder=${email.folder}`);
 
-        // 返回 uid 和 accountId 供前端调用 WebSocket 同步
+        // Return uid, accountId, and folder for frontend WebSocket sync
         return NextResponse.json({
             success: true,
             id: email.id,
             uid: email.uid,
-            accountId: email.accountId
+            accountId: email.accountId,
+            folder: email.folder
         });
     } catch (error) {
         console.error('Message delete error:', error);

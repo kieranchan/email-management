@@ -28,8 +28,11 @@ export async function POST(request: Request) {
             return NextResponse.json({ error: 'Account not found' }, { status: 404 });
         }
 
+        // 使用环境变量覆盖 host (支持跨VPS部署：Dashboard在一个VPS，邮箱服务器在另一个VPS)
+        const smtpHost = process.env.SMTP_HOST || account.host;
+
         const transporter = nodemailer.createTransport({
-            host: account.host,
+            host: smtpHost,
             port: account.smtpPort,
             secure: false, // 587 uses STARTTLS, so secure: false
             auth: {

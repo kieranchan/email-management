@@ -783,7 +783,7 @@ body.noise::before {
 .message-row.selected {
     background: var(--surface-2);
     border-color: var(--stroke-2);
-    box-shadow: 0 0 15px var(--accent-glow-1), var(--glass-inset-top), var(--glass-inset-bottom);
+    box-shadow: 0 0 8px var(--accent-glow-1), var(--glass-inset-top), var(--glass-inset-bottom);
 }
 
 @keyframes spin {
@@ -2050,24 +2050,18 @@ body.noise::before {
 
 /* Current Account Highlight - Enhanced */
 .account-item.current-account {
+    position: relative;
+    /* Fix: 确保::before相对定位 */
     background: var(--surface-2) !important;
     border-color: var(--accent-1) !important;
     box-shadow:
         0 0 0 1px var(--accent-1) inset,
-        0 0 20px var(--accent-glow-1),
+        0 0 8px var(--accent-glow-1),
+        /* Fix: 20px → 8px，避免溢出 */
         var(--elev-1) !important;
 }
 
-.account-item.current-account::before {
-    content: '';
-    position: absolute;
-    left: 0;
-    top: 4px;
-    bottom: 4px;
-    width: 3px;
-    border-radius: 999px;
-    background: linear-gradient(180deg, var(--accent-1), var(--accent-2));
-}
+
 
 /* M6: Sync Refresh Button */
 .sync-refresh-btn {

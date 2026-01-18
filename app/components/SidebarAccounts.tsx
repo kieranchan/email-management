@@ -131,7 +131,7 @@ export default function SidebarAccounts({
                                 fontWeight: 600,
                                 color: '#fff',
                                 flexShrink: 0,
-                                boxShadow: isSelected ? '0 0 0 2px var(--accent-1), 0 2px 5px rgba(0,0,0,0.2)' : '0 2px 5px rgba(0,0,0,0.2)'
+                                boxShadow: '0 2px 5px rgba(0,0,0,0.2)'
                             }}>
                                 {a.name?.[0]?.toUpperCase()}
                             </div>
