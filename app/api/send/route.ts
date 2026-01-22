@@ -39,9 +39,7 @@ export async function POST(request: Request) {
                 user: account.email,
                 pass: account.password,
             },
-            tls: {
-                rejectUnauthorized: false // Self-signed certs often used in internal docker setup
-            }
+            // TLS 证书验证已启用（默认安全配置）
         });
 
         // 先写入本地 Sent 记录，标记为 PENDING

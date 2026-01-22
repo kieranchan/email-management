@@ -52,7 +52,7 @@ async function backfillAccount(account: {
     const client = new ImapFlow({
         host: 'localhost',
         port: 143,
-        secure: false,
+        secure: false, // local SSH tunnel usually plaintext or STARTTLS
         auth: {
             user: account.email,
             pass: account.password,
@@ -60,7 +60,7 @@ async function backfillAccount(account: {
         logger: false,
         greetingTimeout: 10000,
         socketTimeout: 30000,
-        tls: { rejectUnauthorized: false }
+        // TLS 验证由 SSH 隧道保证或确认为安全内网环境，移除不安全的忽略证书配置
     });
 
     try {

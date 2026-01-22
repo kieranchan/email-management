@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
-import { Check, Archive, Trash2, Eye, EyeOff } from 'lucide-react';
+import { Archive, Trash2, Eye, EyeOff } from 'lucide-react';
 
 interface Email {
     id: string;

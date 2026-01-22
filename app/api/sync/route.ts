@@ -20,9 +20,7 @@ async function syncAccount(account: Account) {
         logger: false,
         greetingTimeout: 5000,  // 5 秒连接超时
         socketTimeout: 10000,   // 10 秒操作超时
-        tls: {
-            rejectUnauthorized: false
-        }
+        // TLS 证书验证已启用（默认安全配置）
     });
 
     try {
@@ -42,7 +40,7 @@ async function syncAccount(account: Account) {
 
             // 增量同步：获取数据库中该账号最大 UID
             const lastEmail = await prisma.email.findFirst({
-                where: { accountId: account.id },
+                where: { accountId: account.id, folder: 'INBOX' },
                 orderBy: { uid: 'desc' },
                 select: { uid: true }
             });
@@ -82,6 +80,7 @@ async function syncAccount(account: Account) {
                 date: Date;
                 flags: string;
                 content: null;
+                folder: string;
             }[] = [];
 
             for await (const msg of messages) {
@@ -89,7 +88,17 @@ async function syncAccount(account: Account) {
                 // 增量模式下跳过已存在的 UID
                 if (lastUid > 0 && msg.uid <= lastUid) continue;
 
-                const providerKey = `uid:${msg.uid}`;
+                const providerKey = `INBOX:uid:${msg.uid}`;
+                const legacyKey = `uid:${msg.uid}`;
+                const existingNew = await prisma.email.findUnique({
+                    where: { accountId_providerKey: { accountId: account.id, providerKey } }
+                });
+                if (!existingNew) {
+                    await prisma.email.updateMany({
+                        where: { accountId: account.id, providerKey: legacyKey },
+                        data: { providerKey, folder: 'INBOX' }
+                    });
+                }
 
                 emailsToCreate.push({
                     accountId: account.id,
@@ -101,6 +110,7 @@ async function syncAccount(account: Account) {
                     date: msg.internalDate || new Date(),
                     flags: JSON.stringify(Array.from(msg.flags || [])),
                     content: null, // 延迟加载：详情页按需获取
+                    folder: 'INBOX',
                 });
                 syncedCount++;
             }
@@ -119,6 +129,7 @@ async function syncAccount(account: Account) {
                             update: {
                                 flags: data.flags,
                                 uid: data.uid,
+                                folder: data.folder,
                             },
                             create: data,
                         })

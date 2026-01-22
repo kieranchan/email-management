@@ -32,7 +32,7 @@ model Email {
   accountId   String
   account     Account  @relation(fields: [accountId], references: [id], onDelete: Cascade)
   uid         Int      // IMAP UID
-  providerKey String   // "uid:<uid>" 或 "local:<cuid>" - 用于聚合视图和本地消息
+  providerKey String   // "<FOLDER>:uid:<uid>" 或 "local:<cuid>" - 用于聚合视图和本地消息
   subject     String?
   from        String?
   to          String?
@@ -64,4 +64,92 @@ model Draft {
   
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+}
+
+// --- P1: RBAC & Auth Models ---
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  passwordHash  String
+  name          String?
+  isActive      Boolean   @default(true)
+  
+  userRoles     UserRole[]
+  sessions      Session[]
+  auditLogs     AuditLog[] // Logs created by this user
+
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token        String   @unique
+  ipAddress    String?
+  userAgent    String?
+  expiresAt    DateTime
+  lastActiveAt DateTime @default(now())
+  
+  createdAt    DateTime @default(now())
+}
+
+model Role {
+  id          String   @id @default(cuid())
+  name        String   @unique // e.g., "SuperAdmin", "DomainAdmin", "Viewer"
+  description String?
+  isSystem    Boolean  @default(false) // System roles cannot be deleted
+
+  userRoles   UserRole[]
+  permissions Permission[]
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model UserRole {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  roleId    String
+  role      Role     @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  
+  // Scope for DomainAdmin (if empty, global scope)
+  domainScope String?  // e.g., "example.com" or null for global
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, roleId, domainScope])
+}
+
+model Permission {
+  id        String   @id @default(cuid())
+  roleId    String
+  role      Role     @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  resource  String   // e.g., "users", "accounts", "domains"
+  action    String   // e.g., "create", "read", "update", "delete", "export"
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([roleId, resource, action])
+}
+
+model AuditLog {
+  id          String   @id @default(cuid())
+  userId      String?
+  user        User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  
+  action      String   // e.g., "login", "create_user", "delete_email"
+  resource    String   // e.g., "auth", "users", "emails"
+  resourceId  String?  // ID of the affected resource
+  details     String?  // JSON string with more info
+  status      String   @default("success") // success, failure
+  ipAddress   String?
+  userAgent   String?
+
+  createdAt   DateTime @default(now())
 }

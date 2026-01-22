@@ -28,7 +28,7 @@ async function fetchEmailContent(email: {
             pass: account.password,
         },
         logger: false,
-        tls: { rejectUnauthorized: false },
+        // TLS 证书验证已启用（默认安全配置）
     });
 
     try {

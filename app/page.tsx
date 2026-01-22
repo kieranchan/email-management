@@ -90,13 +90,9 @@ export default function Dashboard() {
   type ViewMode = 'list' | 'detail' | 'compose' | 'settings';
   const [viewMode, setViewMode] = useState<ViewMode>('list');
 
-  // P7: 节流刷新，避免消息风暴
+  // 节流刷新，避免消息风暴
   const lastRefreshRef = useRef<number>(0);
-  const REFRESH_THROTTLE = 4000; // 4 秒节流
-
-  // P7: 轮询引用（仿照 Roundcube，始终运行）
-  const pollingTimerRef = useRef<NodeJS.Timeout | null>(null);
-  const POLLING_INTERVAL = 30000; // 30 秒
+  const REFRESH_THROTTLE = 10000; // 10 秒节流（方案 B：纯推送，延长节流避免推送风暴）
 
   // P7: 跟踪当前选中账号，用于 WebSocket 事件处理
   const selectedRef = useRef<string | null>(selected);
@@ -104,6 +100,8 @@ export default function Dashboard() {
 
   // Bug #33: 请求版本号，用于并发防护
   const loadEmailsVersionRef = useRef(0);
+  const loadEmailsInFlightKeyRef = useRef<string | null>(null);
+  const loadEmailsRequestIdRef = useRef(0);
 
   // Auto-save Debounce Effect
   useEffect(() => {
@@ -236,52 +234,62 @@ export default function Dashboard() {
     return () => window.removeEventListener('popstate', handlePopState);
   }, [isMobile, viewMode]);
 
-  // P7: 使用 Ref 来保持最新的 loadEmails 引用，避免闭包问题
+  // 使用 Ref 来保持最新的 loadEmails 引用，避免闭包问题
   const loadEmailsRef = useRef(loadEmails);
   useEffect(() => { loadEmailsRef.current = loadEmails; });
 
-  // P7: 节流刷新函数
+  // P1: 页面可见性和网络恢复监听 - 添加防抖
+  const visibilityTimerRef = useRef<NodeJS.Timeout | null>(null);
+  useEffect(() => {
+    const scheduleRefresh = () => {
+      if (visibilityTimerRef.current) clearTimeout(visibilityTimerRef.current);
+      visibilityTimerRef.current = setTimeout(() => {
+        loadEmails();
+      }, 400);
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        console.log('[Visibility] Tab active, refreshing inbox (debounced)...');
+        scheduleRefresh();
+      }
+    };
+
+    const handleOnline = () => {
+      console.log('[Network] Back online, refreshing inbox (debounced)...');
+      scheduleRefresh();
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('online', handleOnline);
+
+    return () => {
+      if (visibilityTimerRef.current) clearTimeout(visibilityTimerRef.current);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('online', handleOnline);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // 节流刷新函数
   const throttledRefresh = useCallback(() => {
     const now = Date.now();
     if (now - lastRefreshRef.current > REFRESH_THROTTLE) {
       lastRefreshRef.current = now;
       loadEmailsRef.current(); // 使用 Ref 调用最新函数
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // P7: 启动轮询（仿照 Roundcube，始终运行，不仅离线时）
-  const startPolling = useCallback(() => {
-    if (pollingTimerRef.current) return;
-    console.log('[P7] Starting auto-refresh polling (Roundcube style)...');
-    pollingTimerRef.current = setInterval(() => {
-      console.log('[P7] Auto-refresh polling...');
-      loadEmailsRef.current(); // 使用 Ref 调用最新函数
-    }, POLLING_INTERVAL);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // P7: 停止离线轮询
-  const stopPolling = useCallback(() => {
-    if (pollingTimerRef.current) {
-      console.log('[P7] Stopping offline polling');
-      clearInterval(pollingTimerRef.current);
-      pollingTimerRef.current = null;
-    }
-  }, []);
-
-  // WebSocket 连接：new mail push + sync results with auto-reconnect
+  // WebSocket 连接
   useEffect(() => {
     let socket: WebSocket | null = null;
     let reconnectTimer: NodeJS.Timeout | null = null;
-    let isMounted = true; // Guard for cleanup race condition
+    let isMounted = true;
 
     const connect = () => {
-      // avoid duplicate open connections
       if (socket && socket.readyState === WebSocket.OPEN) return;
 
       try {
-        // 使用环境变量配置 WebSocket URL，默认为本地开发地址
         const wsUrl = process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:3001';
         socket = new WebSocket(wsUrl);
         setWs(socket);
@@ -289,34 +297,28 @@ export default function Dashboard() {
         socket.onopen = () => {
           console.log('[WS] Connected to worker');
           setConnectionStatus('connected');
-          // P7: 连接成功后也保持轮询（仿照 Roundcube）
-          startPolling();
+          loadEmails();
         };
 
         socket.onmessage = (event) => {
           try {
             const data = JSON.parse(event.data);
 
-            // P7: 处理连接状态事件
             if (data.type === 'connection_state') {
               console.log('[P7] Connection state:', data.state);
-              // 这里可以扩展为每个账号的连接状态
             }
 
-            // P7: 处理同步进度事件
             if (data.type === 'sync_progress') {
               console.log('[P7] Sync progress:', data);
               setLastSyncedAt(data.lastSyncedAt);
               setSyncing(false);
               const targetAccount = data.accountId || data.email;
-              // P7: 只有当同步的账号是当前选中账号或 scope=all 时才刷新
               if (data.syncedCount > 0 && (selectedRef.current === 'all' || selectedRef.current === targetAccount)) {
                 throttledRefresh();
               }
             }
 
             if (data.type === 'new_email') {
-              // P7: 只有当新邮件属于当前选中账号或 scope=all 时才刷新
               const targetAccount = data.accountId || data.email;
               if (selectedRef.current === 'all' || selectedRef.current === targetAccount) {
                 throttledRefresh();
@@ -324,7 +326,6 @@ export default function Dashboard() {
             } else if (data.type === 'sync_result') {
               console.log('[WS] Sync result:', data);
               setSyncing(false);
-              // Bug #26: 捕获同步错误
               if (data.error) {
                 setSyncError(data.error);
               } else {
@@ -345,17 +346,13 @@ export default function Dashboard() {
           setWs(null);
           setSyncing(false);
           setConnectionStatus('disconnected');
-          // Guard: 如果已 unmount，不再重连或轮询
           if (!isMounted) return;
           console.log('[WS] Reconnecting in 5s...');
-          // P7: 启动离线轮询
-          startPolling();
           reconnectTimer = setTimeout(connect, 5000);
         };
       } catch (e) {
         console.error('[WS] Connection failed:', e);
         setConnectionStatus('disconnected');
-        startPolling();
         reconnectTimer = setTimeout(connect, 5000);
       }
     };
@@ -363,12 +360,12 @@ export default function Dashboard() {
     connect();
 
     return () => {
-      isMounted = false; // Prevent reconnect/polling after unmount
+      isMounted = false;
       if (reconnectTimer) clearTimeout(reconnectTimer);
-      stopPolling();
       socket?.close();
     };
-  }, [throttledRefresh, startPolling, stopPolling]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [throttledRefresh]);
 
   // Folder Navigation
   // FolderType is now imported from SidebarFolders
@@ -464,15 +461,22 @@ export default function Dashboard() {
 
   // Define functions BEFORE useEffect
   async function loadEmails() {
+    const currentSelected = selectedRef.current;
+    const requestKey = `${activeFolder}|${currentSelected || 'all'}|${searchQuery.trim()}`;
+
+    // 同步/切换等场景下只允许上一条相同参数的请求完成后再发起
+    if (loadEmailsInFlightKeyRef.current === requestKey) {
+      return;
+    }
+    loadEmailsInFlightKeyRef.current = requestKey;
+    const currentRequestId = ++loadEmailsRequestIdRef.current;
+
     // Bug #33: 增加版本号，防止旧请求覆盖新结果
     const currentVersion = ++loadEmailsVersionRef.current;
 
     setLoading(true);
     // 记录本次刷新时间，避免后续事件在短时间内重复刷新
     lastRefreshRef.current = Date.now();
-
-    // P7: 使用 ref 获取最新的 selected 值，避免闭包问题
-    const currentSelected = selectedRef.current;
 
     try {
       // Drafts use a different API endpoint
@@ -538,7 +542,12 @@ export default function Dashboard() {
     } catch (e) {
       console.error('Failed to load emails:', e);
     } finally {
-      setLoading(false);
+      if (loadEmailsRequestIdRef.current === currentRequestId) {
+        setLoading(false);
+      }
+      if (loadEmailsInFlightKeyRef.current === requestKey) {
+        loadEmailsInFlightKeyRef.current = null;
+      }
     }
   }
 
@@ -568,8 +577,13 @@ export default function Dashboard() {
   // 切换账号或文件夹时自动加载邮件 + 触发 Worker 同步
   useEffect(() => {
     // Bug #32: 切换上下文时清空搜索词，避免旧的防抖定时器干扰
-    setSearchQuery('');
-    loadEmails();
+    // 仅在有搜索词时才清空，避免触发 searchQuery useEffect 重复请求
+    if (searchQuery) {
+      setSearchQuery('');
+      // 搜索词清空后，searchQuery useEffect 会自动调用 loadEmails，所以这里不需要调用
+    } else {
+      loadEmails();
+    }
 
     // P7: 切换账号时触发 Worker 同步，确保获取最新邮件（仿照 Roundcube 的"主动请求"模式）
     if (selected && selected !== 'all' && ws && ws.readyState === WebSocket.OPEN) {
@@ -872,9 +886,9 @@ export default function Dashboard() {
           successCount++;
           // 同步到 IMAP
           if (ws && ws.readyState === WebSocket.OPEN && result.uid && result.accountId) {
-            ws.send(JSON.stringify({ 
-              type: 'delete', 
-              accountId: result.accountId, 
+            ws.send(JSON.stringify({
+              type: 'delete',
+              accountId: result.accountId,
               uid: result.uid,
               folder: result.folder || 'INBOX'
             }));
