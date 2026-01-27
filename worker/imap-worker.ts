@@ -192,11 +192,7 @@ class AccountWatcher {
             // P7: Broadcast connected state
             this.broadcastConnectionState('connected');
 
-            // Listen for new emails to break IDLE
-            this.client.on('exists', () => {
-                // If we are idling, stop it so we can fetch
-                this.client?.idleLogout?.();
-            });
+            // Listen for new emails (IDLE will be automatically interrupted)
 
             // P7: Auto-sync on connect/reconnect to catch up
             const syncResult = await this.manualSync();
@@ -231,21 +227,16 @@ class AccountWatcher {
 
             try {
                 // Get initial message count
-                let lastExists = this.client.mailbox?.exists || 0;
+                let lastExists = (this.client.mailbox && typeof this.client.mailbox === 'object') ? this.client.mailbox.exists : 0;
                 console.log(`[IMAP] ${this.account.email} has ${lastExists} messages, entering IDLE...`);
 
                 // IDLE loop
                 while (this.running && this.client) {
                     try {
-                        const idlePromise = this.client.idle();
-                        const timeoutId = setTimeout(() => {
-                            this.client?.idleLogout?.();
-                        }, 15 * 60 * 1000);
+                        // IDLE with 15 minute timeout (will auto-break on new mail)
+                        await this.client.idle();
 
-                        await idlePromise;
-                        clearTimeout(timeoutId);
-
-                        const currentExists = this.client.mailbox?.exists || 0;
+                        const currentExists = (this.client.mailbox && typeof this.client.mailbox === 'object') ? this.client.mailbox.exists : 0;
                         if (currentExists > lastExists) {
                             await this.fetchNewEmails(lastExists + 1, currentExists);
                             lastExists = currentExists;
@@ -393,6 +384,25 @@ class AccountWatcher {
         return updated;
     }
 
+    // Acquire mailbox lock with timeout to avoid deadlocks (e.g., IDLE holding INBOX)
+    private async acquireMailboxLock(path: string, timeoutMs = 5000): Promise<Awaited<ReturnType<ImapFlow['getMailboxLock']>> | null> {
+        if (!this.client) return null;
+
+        const lockPromise = this.client.getMailboxLock(path);
+        const timeoutPromise = new Promise<null>((_, reject) =>
+            setTimeout(() => reject(new Error('Lock timeout')), timeoutMs)
+        );
+
+        try {
+            const lock = await Promise.race([lockPromise, timeoutPromise]);
+            return lock as Awaited<ReturnType<ImapFlow['getMailboxLock']>>;
+        } catch (err: unknown) {
+            const message = err instanceof Error ? err.message : String(err);
+            console.log(`[IMAP] Skipping lock for ${path} (${this.account.email}) - ${message}`);
+            return null;
+        }
+    }
+
     // 手动同步：复用现有 IMAP 连接获取最新邮件
     async manualSync(): Promise<{ success: boolean; synced: number; error?: string }> {
         if (!this.client) {
@@ -510,13 +520,20 @@ class AccountWatcher {
         }
 
         try {
-            const lock = await this.client.getMailboxLock('INBOX');
+            const currentPath = (typeof this.client.mailbox === 'object' && this.client.mailbox) ? this.client.mailbox.path : null;
+            const needsLock = currentPath !== 'INBOX';
+            const lock = needsLock ? await this.acquireMailboxLock('INBOX') : null;
+            if (needsLock && !lock) {
+                console.log(`[IMAP] Skipping markSeen for ${this.account.email} - mailbox busy`);
+                return { success: false, error: 'Mailbox busy (IDLE active)' };
+            }
+
             try {
-                await this.client.messageFlagsAdd({ uid: true }, String(uid), ['\\Seen']);
+                await this.client.messageFlagsAdd(String(uid), ['\\Seen'], { uid: true });
                 console.log(`[IMAP] Marked UID ${uid} as seen for ${this.account.email}`);
                 return { success: true };
             } finally {
-                lock.release();
+                if (lock) lock.release();
             }
         } catch (err: unknown) {
             const message = err instanceof Error ? err.message : String(err);
@@ -532,7 +549,14 @@ class AccountWatcher {
         }
 
         try {
-            const lock = await this.client.getMailboxLock('INBOX');
+            const currentPath = (typeof this.client.mailbox === 'object' && this.client.mailbox) ? this.client.mailbox.path : null;
+            const needsLock = currentPath !== 'INBOX';
+            const lock = needsLock ? await this.acquireMailboxLock('INBOX') : null;
+            if (needsLock && !lock) {
+                console.log(`[IMAP] Skipping moveToArchive for ${this.account.email} - mailbox busy`);
+                return { success: false, error: 'Mailbox busy (IDLE active)' };
+            }
+
             try {
                 // 尝试不同的 Archive 文件夹名称
                 const archiveFolders = ['Archive', 'Archived', 'ARCHIVE', '[Gmail]/All Mail'];
@@ -540,7 +564,7 @@ class AccountWatcher {
 
                 for (const folder of archiveFolders) {
                     try {
-                        await this.client.messageMove({ uid: true }, String(uid), folder);
+                        await this.client.messageMove(String(uid), folder, { uid: true });
                         console.log(`[IMAP] Moved UID ${uid} to ${folder} for ${this.account.email}`);
                         moved = true;
                         break;
@@ -553,7 +577,7 @@ class AccountWatcher {
                     // 如果没有 Archive 文件夹，创建一个
                     try {
                         await this.client.mailboxCreate('Archive');
-                        await this.client.messageMove({ uid: true }, String(uid), 'Archive');
+                        await this.client.messageMove(String(uid), 'Archive', { uid: true });
                         console.log(`[IMAP] Created Archive folder and moved UID ${uid} for ${this.account.email}`);
                         moved = true;
                     } catch (createErr) {
@@ -563,7 +587,7 @@ class AccountWatcher {
 
                 return { success: moved, error: moved ? undefined : 'No Archive folder found' };
             } finally {
-                lock.release();
+                if (lock) lock.release();
             }
         } catch (err: unknown) {
             const message = err instanceof Error ? err.message : String(err);
@@ -586,7 +610,7 @@ class AccountWatcher {
                 try {
                     const lock = await this.client.getMailboxLock(folder);
                     try {
-                        await this.client.messageMove({ uid: true }, String(uid), 'INBOX');
+                        await this.client.messageMove(String(uid), 'INBOX', { uid: true });
                         console.log(`[IMAP] Restored UID ${uid} from ${folder} to INBOX for ${this.account.email}`);
                         return { success: true };
                     } finally {
@@ -612,16 +636,23 @@ class AccountWatcher {
         }
 
         try {
-            const lock = await this.client.getMailboxLock(folder);
+            const currentPath = (typeof this.client.mailbox === 'object' && this.client.mailbox) ? this.client.mailbox.path : null;
+            const needsLock = currentPath !== folder;
+            const lock = needsLock ? await this.acquireMailboxLock(folder) : null;
+            if (needsLock && !lock) {
+                console.log(`[IMAP] Skipping deleteEmail for ${this.account.email} in ${folder} - mailbox busy`);
+                return { success: false, error: 'Mailbox busy (IDLE active)' };
+            }
+
             try {
                 // Mark as deleted
-                await this.client.messageFlagsAdd({ uid: true }, String(uid), ['\\Deleted']);
+                await this.client.messageFlagsAdd(String(uid), ['\\Deleted'], { uid: true });
                 // Execute expunge to permanently delete
-                await this.client.messageDelete({ uid: true }, String(uid));
+                await this.client.messageDelete(String(uid), { uid: true });
                 console.log(`[IMAP] Deleted UID ${uid} from ${folder} for ${this.account.email}`);
                 return { success: true };
             } finally {
-                lock.release();
+                if (lock) lock.release();
             }
         } catch (err: unknown) {
             const message = err instanceof Error ? err.message : String(err);
